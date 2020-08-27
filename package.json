@@ -4,11 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build-backend": "tsc --project backend/tsconfig.json ",
-    "dev-backend": "concurrently \"tsc --project backend/tsconfig.json --watch\" \"nodemon backend/dist\"",
+    "build-backend": "node backend",
+    "dev-backend": "nodemon backend",
     "build-frontend": "cd frontend && webpack",
-    "dev-frontend": "cd frontend && webpack-dev-server",
-    "build-project": "npm run build-backend && npm run build-frontend"
+    "dev-frontend": "cd frontend && webpack-dev-server"
   },
   "author": "",
   "license": "ISC",

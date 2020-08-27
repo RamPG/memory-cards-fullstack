@@ -11,22 +11,22 @@ export const Navbar = () => (
       <div className="navbar-collapse">
         <ul className="navbar-nav ml-auto">
           <li className="nav-item active">
-            <Link to="/cards/" className="nav-link" href="#">
+            <Link to="/cards" className="nav-link" href="#">
               Cards
             </Link>
           </li>
           <li className="nav-item active">
-            <Link to="/profile/" className="nav-link" href="#">
+            <Link to="/profile" className="nav-link" href="#">
               Profile
             </Link>
           </li>
           <li className="nav-item active">
-            <Link to="/login/" className="nav-link" href="#">
+            <Link to="/login" className="nav-link" href="#">
               Login
             </Link>
           </li>
           <li className="nav-item active">
-            <Link to="/register/" className="nav-link" href="#">
+            <Link to="/register" className="nav-link" href="#">
               Register
             </Link>
           </li>

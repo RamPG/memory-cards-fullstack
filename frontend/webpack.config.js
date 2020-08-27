@@ -6,9 +6,9 @@ module.exports = {
   mode: 'development',
   entry: './src/index.tsx',
   output: {
-    path: path.resolve(__dirname, '../backend/dist/public'),
+    path: path.resolve(__dirname, '../backend/public'),
     filename: 'index.js',
-    publicPath: '',
+    publicPath: '/',
   },
   module: {
     rules: [
@@ -78,7 +78,7 @@ module.exports = {
   ],
   devtool: 'source-map',
   resolve: {
-    extensions: ['.js', '.ts', '.tsx'],
+    extensions: ['.ts', '.tsx'],
   },
   devServer: {
     open: true,

@@ -4,9 +4,13 @@ const path = require('path');
 const app = express();
 
 const PORT = 5000;
-console.log("all project was build");
-app.use(express.static(`${__dirname}/public/`));
-app.get('/', (req: any, res: any) => {
+
+app.use(express.static(`${__dirname}/public`));
+app.post('/auth/register', (req, res) => {
+  console.log(req.body);
+  res.redirect('/login');
+});
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.listen(PORT, () => {

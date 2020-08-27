@@ -1,1 +1,0 @@
-{"version":3,"sources":["webpack:///src/components/app/app.scss"],"names":[],"mappings":"AAEA;EACE,WAHU","file":"style.css","sourcesContent":["$color: blue;\r\n\r\nh1 {\r\n  color: $color;\r\n}\r\n"],"sourceRoot":""}

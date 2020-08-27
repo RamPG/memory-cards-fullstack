@@ -1,7 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Route, Switch } from 'react-router-dom';
+import { Provider } from 'react-redux';
+
 import './app.scss';
 
+import { store } from '../../store';
 import { Navbar } from '../navbar';
 import { Login } from '../login';
 import { Register } from '../register';
@@ -9,7 +12,7 @@ import { Profile } from '../profile';
 import { Cards } from '../cards';
 
 export const App = () => (
-  <>
+  <Provider store={store}>
     <BrowserRouter>
       <Navbar />
       <Switch>
@@ -20,5 +23,6 @@ export const App = () => (
         <Route render={() => <h2>Page not found</h2>} />
       </Switch>
     </BrowserRouter>
-  </>
+  </Provider>
+
 );
