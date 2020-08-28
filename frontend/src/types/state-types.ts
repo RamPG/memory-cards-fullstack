@@ -3,3 +3,8 @@ export type AuthenticationStateType = {
     isSuccess: boolean,
     isLoading: boolean,
 };
+
+export type InitialStateType = {
+    login: AuthenticationStateType,
+    register: AuthenticationStateType,
+}

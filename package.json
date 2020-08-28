@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build-backend": "node backend",
-    "dev-backend": "nodemon backend",
+    "dev-backend": "npm run build-frontend && nodemon backend",
     "build-frontend": "cd frontend && webpack",
     "dev-frontend": "cd frontend && webpack-dev-server"
   },

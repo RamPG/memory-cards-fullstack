@@ -23,7 +23,7 @@ export function registerSuccess() {
 }
 
 export function registrationAttempt(data: any) {
-  return (dispatch: any) => {
+  return (dispatch: any, getState: any) => {
     dispatch(registerRequest());
     return fetch('/auth/register', {
       method: 'POST',
@@ -33,10 +33,10 @@ export function registrationAttempt(data: any) {
       body: JSON.stringify(data),
     })
       .then((res) => {
-        console.log(res.json());
+        dispatch(registerSuccess());
       })
       .catch((err) => {
-        console.log(err);
+        dispatch(registerFailure());
       });
   };
 }

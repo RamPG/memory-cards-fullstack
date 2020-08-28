@@ -1,18 +1,31 @@
 import React, { FunctionComponent, useState } from 'react';
 
 import './register.scss';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useField } from '../../hooks/use-field';
 import { registrationAttempt } from '../../reducers/register-reducer/actions';
+import { InitialStateType, AuthenticationStateType } from '../../types/state-types';
 
 export const Register: FunctionComponent = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const { isLoading, isError, isSuccess }: AuthenticationStateType = useSelector(
+    (state: InitialStateType) => state.register,
+  );
+  let status = '';
+  if (isLoading) {
+    status = 'Loading...';
+  }
+  if (isError) {
+    status = 'Error!';
+  }
+  if (isSuccess) {
+    status = 'Register success';
+  }
   const dispatch = useDispatch();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>): void {
     evt.preventDefault();
-    console.log('123');
     dispatch(registrationAttempt({ email, password, confirmPassword }));
   }
   return (
@@ -44,6 +57,9 @@ export const Register: FunctionComponent = () => {
               required
             />
           </div>
+          {
+            status
+          }
           <button
             type="submit"
             className="btn btn-primary"

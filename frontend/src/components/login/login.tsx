@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
 
 import './login.scss';
+import { useDispatch, useSelector } from 'react-redux';
 import { useField } from '../../hooks/use-field';
+import { AuthenticationStateType, InitialStateType } from '../../types/state-types';
+import { loginAttempt } from '../../reducers/login-reducer/actions';
 
 export const Login = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const { isLoading, isError, isSuccess }: AuthenticationStateType = useSelector(
+    (state: InitialStateType) => state.login,
+  );
+  let status = '';
+  if (isLoading) {
+    status = 'Loading...';
+  }
+  if (isError) {
+    status = 'Error!';
+  }
+  if (isSuccess) {
+    status = 'Login success';
+  }
+  const dispatch = useDispatch();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>): void {
     evt.preventDefault();
-    console.log(email, password);
-
+    dispatch(loginAttempt({ email, password }));
   }
   return (
     <div className="container-fluid h-100 text-dark">
@@ -32,6 +48,9 @@ export const Login = () => {
               required
             />
           </div>
+          {
+            status
+          }
           <button type="submit" className="btn btn-primary">Submit</button>
         </form>
       </div>

@@ -5,18 +5,19 @@ import {
   REGISTER_SUCCESS,
 } from './actions-constants';
 
-const initialStateType: AuthenticationStateType = {
+const initialState: AuthenticationStateType = {
   isError: false,
   isLoading: false,
   isSuccess: false,
 };
 
-export function registerReducer(state: AuthenticationStateType = initialStateType, action: any) {
+export function registerReducer(state: AuthenticationStateType = initialState, action: any) {
   switch (action.type) {
     case REGISTER_REQUEST:
       return {
-        ...state,
-        isLoading: true
+        isError: false,
+        isSuccess: false,
+        isLoading: true,
       };
     case REGISTER_FAILURE:
       return {
