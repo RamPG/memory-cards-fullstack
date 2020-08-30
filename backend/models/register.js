@@ -1,12 +1,5 @@
-const mongoose = require('mongoose');
 const argon2 = require('argon2');
-
-const userRegisterSchema = new mongoose.Schema({
-  email: String,
-  password: String,
-  wordsList: Array,
-});
-const User = mongoose.model('User', userRegisterSchema);
+const User = require('./user');
 
 module.exports = class Register {
   async registrationsUser(email, password) {
