@@ -1,32 +1,48 @@
-import React, { FunctionComponent, useState } from 'react';
+import React, { FunctionComponent, useContext, useState } from 'react';
 
 import './register.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import { useField } from '../../hooks/use-field';
 import { registrationAttempt } from '../../reducers/register-reducer/actions';
 import { InitialStateType, AuthenticationStateType } from '../../types/state-types';
+import { MemoryCardApi } from '../../services/memory-card-api';
+import {
+  registerFormValidation,
+  ValidationResultType,
+} from '../../utils/validation';
+import { MemoryCardApiContext } from '../../contexts/memory-card-api-context';
 
 export const Register: FunctionComponent = () => {
+  const memoryCardApi: MemoryCardApi = useContext(MemoryCardApiContext);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const { isLoading, isError, isSuccess }: AuthenticationStateType = useSelector(
+  const [validationStatus, setValidationStatus] = useState<string>('');
+  const {
+    isLoading, isError, isSuccess, message,
+  }: AuthenticationStateType = useSelector(
     (state: InitialStateType) => state.register,
   );
-  let status = '';
+  let serverStatus = '';
   if (isLoading) {
-    status = 'Loading...';
+    serverStatus = 'Loading...';
   }
   if (isError) {
-    status = 'Error!';
+    serverStatus = 'Error!';
   }
   if (isSuccess) {
-    status = 'Register success';
+    serverStatus = message;
   }
   const dispatch = useDispatch();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>): void {
     evt.preventDefault();
-    dispatch(registrationAttempt({ email, password, confirmPassword }));
+    const { isSuccess, message }: ValidationResultType = registerFormValidation(email, password, confirmPassword);
+    if (isSuccess) {
+      setValidationStatus('');
+      dispatch(registrationAttempt({ email, password }, memoryCardApi));
+    } else {
+      setValidationStatus(message);
+    }
   }
   return (
     <div className="container-fluid h-100 text-dark">
@@ -45,6 +61,8 @@ export const Register: FunctionComponent = () => {
             <input
               type="password"
               placeholder="Password"
+              minLength={8}
+              maxLength={16}
               onChange={(evt: React.ChangeEvent<HTMLInputElement>) => useField<string>(evt.target.value, setPassword)}
               required
             />
@@ -53,12 +71,17 @@ export const Register: FunctionComponent = () => {
             <input
               type="password"
               placeholder="Confirm password"
+              minLength={8}
+              maxLength={16}
               onChange={(evt: React.ChangeEvent<HTMLInputElement>) => useField<string>(evt.target.value, setConfirmPassword)}
               required
             />
           </div>
           {
-            status
+            validationStatus
+          }
+          {
+            serverStatus
           }
           <button
             type="submit"
@@ -66,6 +89,29 @@ export const Register: FunctionComponent = () => {
           >
             Submit
           </button>
+          <p><b>Password must contain the following:</b></p>
+          <p>
+            A
+            {' '}
+            <b>lowercase</b>
+            {' '}
+            letter
+          </p>
+          <p>
+            A
+            {' '}
+            <b>capital (uppercase)</b>
+            {' '}
+            letter
+          </p>
+          <p>
+            A
+            {' '}
+            <b>number</b>
+          </p>
+          <p>
+            <b>8-16 characters</b>
+          </p>
         </form>
       </div>
     </div>

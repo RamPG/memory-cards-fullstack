@@ -226,6 +226,26 @@ module.exports = function (key) {
 
 /***/ }),
 
+/***/ "../node_modules/core-js/internals/advance-string-index.js":
+/*!*****************************************************************!*\
+  !*** ../node_modules/core-js/internals/advance-string-index.js ***!
+  \*****************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var charAt = __webpack_require__(/*! ../internals/string-multibyte */ "../node_modules/core-js/internals/string-multibyte.js").charAt;
+
+// `AdvanceStringIndex` abstract operation
+// https://tc39.github.io/ecma262/#sec-advancestringindex
+module.exports = function (S, index, unicode) {
+  return index + (unicode ? charAt(S, index).length : 1);
+};
+
+
+/***/ }),
+
 /***/ "../node_modules/core-js/internals/an-instance.js":
 /*!********************************************************!*\
   !*** ../node_modules/core-js/internals/an-instance.js ***!
@@ -1156,6 +1176,143 @@ module.exports = function (exec) {
   } catch (error) {
     return true;
   }
+};
+
+
+/***/ }),
+
+/***/ "../node_modules/core-js/internals/fix-regexp-well-known-symbol-logic.js":
+/*!*******************************************************************************!*\
+  !*** ../node_modules/core-js/internals/fix-regexp-well-known-symbol-logic.js ***!
+  \*******************************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+// TODO: Remove from `core-js@4` since it's moved to entry points
+__webpack_require__(/*! ../modules/es.regexp.exec */ "../node_modules/core-js/modules/es.regexp.exec.js");
+var redefine = __webpack_require__(/*! ../internals/redefine */ "../node_modules/core-js/internals/redefine.js");
+var fails = __webpack_require__(/*! ../internals/fails */ "../node_modules/core-js/internals/fails.js");
+var wellKnownSymbol = __webpack_require__(/*! ../internals/well-known-symbol */ "../node_modules/core-js/internals/well-known-symbol.js");
+var regexpExec = __webpack_require__(/*! ../internals/regexp-exec */ "../node_modules/core-js/internals/regexp-exec.js");
+var createNonEnumerableProperty = __webpack_require__(/*! ../internals/create-non-enumerable-property */ "../node_modules/core-js/internals/create-non-enumerable-property.js");
+
+var SPECIES = wellKnownSymbol('species');
+
+var REPLACE_SUPPORTS_NAMED_GROUPS = !fails(function () {
+  // #replace needs built-in support for named groups.
+  // #match works fine because it just return the exec results, even if it has
+  // a "grops" property.
+  var re = /./;
+  re.exec = function () {
+    var result = [];
+    result.groups = { a: '7' };
+    return result;
+  };
+  return ''.replace(re, '$<a>') !== '7';
+});
+
+// IE <= 11 replaces $0 with the whole match, as if it was $&
+// https://stackoverflow.com/questions/6024666/getting-ie-to-replace-a-regex-with-the-literal-string-0
+var REPLACE_KEEPS_$0 = (function () {
+  return 'a'.replace(/./, '$0') === '$0';
+})();
+
+var REPLACE = wellKnownSymbol('replace');
+// Safari <= 13.0.3(?) substitutes nth capture where n>m with an empty string
+var REGEXP_REPLACE_SUBSTITUTES_UNDEFINED_CAPTURE = (function () {
+  if (/./[REPLACE]) {
+    return /./[REPLACE]('a', '$0') === '';
+  }
+  return false;
+})();
+
+// Chrome 51 has a buggy "split" implementation when RegExp#exec !== nativeExec
+// Weex JS has frozen built-in prototypes, so use try / catch wrapper
+var SPLIT_WORKS_WITH_OVERWRITTEN_EXEC = !fails(function () {
+  var re = /(?:)/;
+  var originalExec = re.exec;
+  re.exec = function () { return originalExec.apply(this, arguments); };
+  var result = 'ab'.split(re);
+  return result.length !== 2 || result[0] !== 'a' || result[1] !== 'b';
+});
+
+module.exports = function (KEY, length, exec, sham) {
+  var SYMBOL = wellKnownSymbol(KEY);
+
+  var DELEGATES_TO_SYMBOL = !fails(function () {
+    // String methods call symbol-named RegEp methods
+    var O = {};
+    O[SYMBOL] = function () { return 7; };
+    return ''[KEY](O) != 7;
+  });
+
+  var DELEGATES_TO_EXEC = DELEGATES_TO_SYMBOL && !fails(function () {
+    // Symbol-named RegExp methods call .exec
+    var execCalled = false;
+    var re = /a/;
+
+    if (KEY === 'split') {
+      // We can't use real regex here since it causes deoptimization
+      // and serious performance degradation in V8
+      // https://github.com/zloirock/core-js/issues/306
+      re = {};
+      // RegExp[@@split] doesn't call the regex's exec method, but first creates
+      // a new one. We need to return the patched regex when creating the new one.
+      re.constructor = {};
+      re.constructor[SPECIES] = function () { return re; };
+      re.flags = '';
+      re[SYMBOL] = /./[SYMBOL];
+    }
+
+    re.exec = function () { execCalled = true; return null; };
+
+    re[SYMBOL]('');
+    return !execCalled;
+  });
+
+  if (
+    !DELEGATES_TO_SYMBOL ||
+    !DELEGATES_TO_EXEC ||
+    (KEY === 'replace' && !(
+      REPLACE_SUPPORTS_NAMED_GROUPS &&
+      REPLACE_KEEPS_$0 &&
+      !REGEXP_REPLACE_SUBSTITUTES_UNDEFINED_CAPTURE
+    )) ||
+    (KEY === 'split' && !SPLIT_WORKS_WITH_OVERWRITTEN_EXEC)
+  ) {
+    var nativeRegExpMethod = /./[SYMBOL];
+    var methods = exec(SYMBOL, ''[KEY], function (nativeMethod, regexp, str, arg2, forceStringMethod) {
+      if (regexp.exec === regexpExec) {
+        if (DELEGATES_TO_SYMBOL && !forceStringMethod) {
+          // The native String method already delegates to @@method (this
+          // polyfilled function), leasing to infinite recursion.
+          // We avoid it by directly calling the native @@method method.
+          return { done: true, value: nativeRegExpMethod.call(regexp, str, arg2) };
+        }
+        return { done: true, value: nativeMethod.call(str, regexp, arg2) };
+      }
+      return { done: false };
+    }, {
+      REPLACE_KEEPS_$0: REPLACE_KEEPS_$0,
+      REGEXP_REPLACE_SUBSTITUTES_UNDEFINED_CAPTURE: REGEXP_REPLACE_SUBSTITUTES_UNDEFINED_CAPTURE
+    });
+    var stringMethod = methods[0];
+    var regexMethod = methods[1];
+
+    redefine(String.prototype, KEY, stringMethod);
+    redefine(RegExp.prototype, SYMBOL, length == 2
+      // 21.2.5.8 RegExp.prototype[@@replace](string, replaceValue)
+      // 21.2.5.11 RegExp.prototype[@@split](string, limit)
+      ? function (string, arg) { return regexMethod.call(string, this, arg); }
+      // 21.2.5.6 RegExp.prototype[@@match](string)
+      // 21.2.5.9 RegExp.prototype[@@search](string)
+      : function (string) { return regexMethod.call(string, this); }
+    );
+  }
+
+  if (sham) createNonEnumerableProperty(RegExp.prototype[SYMBOL], 'sham', true);
 };
 
 
@@ -2449,6 +2606,138 @@ var TEMPLATE = String(String).split('String');
 
 /***/ }),
 
+/***/ "../node_modules/core-js/internals/regexp-exec-abstract.js":
+/*!*****************************************************************!*\
+  !*** ../node_modules/core-js/internals/regexp-exec-abstract.js ***!
+  \*****************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+var classof = __webpack_require__(/*! ./classof-raw */ "../node_modules/core-js/internals/classof-raw.js");
+var regexpExec = __webpack_require__(/*! ./regexp-exec */ "../node_modules/core-js/internals/regexp-exec.js");
+
+// `RegExpExec` abstract operation
+// https://tc39.github.io/ecma262/#sec-regexpexec
+module.exports = function (R, S) {
+  var exec = R.exec;
+  if (typeof exec === 'function') {
+    var result = exec.call(R, S);
+    if (typeof result !== 'object') {
+      throw TypeError('RegExp exec method returned something other than an Object or null');
+    }
+    return result;
+  }
+
+  if (classof(R) !== 'RegExp') {
+    throw TypeError('RegExp#exec called on incompatible receiver');
+  }
+
+  return regexpExec.call(R, S);
+};
+
+
+
+/***/ }),
+
+/***/ "../node_modules/core-js/internals/regexp-exec.js":
+/*!********************************************************!*\
+  !*** ../node_modules/core-js/internals/regexp-exec.js ***!
+  \********************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var regexpFlags = __webpack_require__(/*! ./regexp-flags */ "../node_modules/core-js/internals/regexp-flags.js");
+var stickyHelpers = __webpack_require__(/*! ./regexp-sticky-helpers */ "../node_modules/core-js/internals/regexp-sticky-helpers.js");
+
+var nativeExec = RegExp.prototype.exec;
+// This always refers to the native implementation, because the
+// String#replace polyfill uses ./fix-regexp-well-known-symbol-logic.js,
+// which loads this file before patching the method.
+var nativeReplace = String.prototype.replace;
+
+var patchedExec = nativeExec;
+
+var UPDATES_LAST_INDEX_WRONG = (function () {
+  var re1 = /a/;
+  var re2 = /b*/g;
+  nativeExec.call(re1, 'a');
+  nativeExec.call(re2, 'a');
+  return re1.lastIndex !== 0 || re2.lastIndex !== 0;
+})();
+
+var UNSUPPORTED_Y = stickyHelpers.UNSUPPORTED_Y || stickyHelpers.BROKEN_CARET;
+
+// nonparticipating capturing group, copied from es5-shim's String#split patch.
+var NPCG_INCLUDED = /()??/.exec('')[1] !== undefined;
+
+var PATCH = UPDATES_LAST_INDEX_WRONG || NPCG_INCLUDED || UNSUPPORTED_Y;
+
+if (PATCH) {
+  patchedExec = function exec(str) {
+    var re = this;
+    var lastIndex, reCopy, match, i;
+    var sticky = UNSUPPORTED_Y && re.sticky;
+    var flags = regexpFlags.call(re);
+    var source = re.source;
+    var charsAdded = 0;
+    var strCopy = str;
+
+    if (sticky) {
+      flags = flags.replace('y', '');
+      if (flags.indexOf('g') === -1) {
+        flags += 'g';
+      }
+
+      strCopy = String(str).slice(re.lastIndex);
+      // Support anchored sticky behavior.
+      if (re.lastIndex > 0 && (!re.multiline || re.multiline && str[re.lastIndex - 1] !== '\n')) {
+        source = '(?: ' + source + ')';
+        strCopy = ' ' + strCopy;
+        charsAdded++;
+      }
+      // ^(? + rx + ) is needed, in combination with some str slicing, to
+      // simulate the 'y' flag.
+      reCopy = new RegExp('^(?:' + source + ')', flags);
+    }
+
+    if (NPCG_INCLUDED) {
+      reCopy = new RegExp('^' + source + '$(?!\\s)', flags);
+    }
+    if (UPDATES_LAST_INDEX_WRONG) lastIndex = re.lastIndex;
+
+    match = nativeExec.call(sticky ? reCopy : re, strCopy);
+
+    if (sticky) {
+      if (match) {
+        match.input = match.input.slice(charsAdded);
+        match[0] = match[0].slice(charsAdded);
+        match.index = re.lastIndex;
+        re.lastIndex += match[0].length;
+      } else re.lastIndex = 0;
+    } else if (UPDATES_LAST_INDEX_WRONG && match) {
+      re.lastIndex = re.global ? match.index + match[0].length : lastIndex;
+    }
+    if (NPCG_INCLUDED && match && match.length > 1) {
+      // Fix browsers whose `exec` methods don't consistently return `undefined`
+      // for NPCG, like IE8. NOTE: This doesn' work for /(.?)?/
+      nativeReplace.call(match[0], reCopy, function () {
+        for (i = 1; i < arguments.length - 2; i++) {
+          if (arguments[i] === undefined) match[i] = undefined;
+        }
+      });
+    }
+
+    return match;
+  };
+}
+
+module.exports = patchedExec;
+
+
+/***/ }),
+
 /***/ "../node_modules/core-js/internals/regexp-flags.js":
 /*!*********************************************************!*\
   !*** ../node_modules/core-js/internals/regexp-flags.js ***!
@@ -2473,6 +2762,41 @@ module.exports = function () {
   if (that.sticky) result += 'y';
   return result;
 };
+
+
+/***/ }),
+
+/***/ "../node_modules/core-js/internals/regexp-sticky-helpers.js":
+/*!******************************************************************!*\
+  !*** ../node_modules/core-js/internals/regexp-sticky-helpers.js ***!
+  \******************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var fails = __webpack_require__(/*! ./fails */ "../node_modules/core-js/internals/fails.js");
+
+// babel-minify transpiles RegExp('a', 'y') -> /a/y and it causes SyntaxError,
+// so we use an intermediate function.
+function RE(s, f) {
+  return RegExp(s, f);
+}
+
+exports.UNSUPPORTED_Y = fails(function () {
+  // babel-minify transpiles RegExp('a', 'y') -> /a/y and it causes SyntaxError
+  var re = RE('a', 'y');
+  re.lastIndex = 2;
+  return re.exec('abcd') != null;
+});
+
+exports.BROKEN_CARET = fails(function () {
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=773687
+  var re = RE('^r', 'gy');
+  re.lastIndex = 2;
+  return re.exec('str') != null;
+});
 
 
 /***/ }),
@@ -3274,6 +3598,26 @@ $({ target: 'Object', stat: true, forced: Object.assign !== assign }, {
 
 /***/ }),
 
+/***/ "../node_modules/core-js/modules/es.object.define-property.js":
+/*!********************************************************************!*\
+  !*** ../node_modules/core-js/modules/es.object.define-property.js ***!
+  \********************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+var $ = __webpack_require__(/*! ../internals/export */ "../node_modules/core-js/internals/export.js");
+var DESCRIPTORS = __webpack_require__(/*! ../internals/descriptors */ "../node_modules/core-js/internals/descriptors.js");
+var objectDefinePropertyModile = __webpack_require__(/*! ../internals/object-define-property */ "../node_modules/core-js/internals/object-define-property.js");
+
+// `Object.defineProperty` method
+// https://tc39.github.io/ecma262/#sec-object.defineproperty
+$({ target: 'Object', stat: true, forced: !DESCRIPTORS, sham: !DESCRIPTORS }, {
+  defineProperty: objectDefinePropertyModile.f
+});
+
+
+/***/ }),
+
 /***/ "../node_modules/core-js/modules/es.object.to-string.js":
 /*!**************************************************************!*\
   !*** ../node_modules/core-js/modules/es.object.to-string.js ***!
@@ -3289,54 +3633,6 @@ var toString = __webpack_require__(/*! ../internals/object-to-string */ "../node
 // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
 if (!TO_STRING_TAG_SUPPORT) {
   redefine(Object.prototype, 'toString', toString, { unsafe: true });
-}
-
-
-/***/ }),
-
-/***/ "../node_modules/core-js/modules/es.promise.finally.js":
-/*!*************************************************************!*\
-  !*** ../node_modules/core-js/modules/es.promise.finally.js ***!
-  \*************************************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var $ = __webpack_require__(/*! ../internals/export */ "../node_modules/core-js/internals/export.js");
-var IS_PURE = __webpack_require__(/*! ../internals/is-pure */ "../node_modules/core-js/internals/is-pure.js");
-var NativePromise = __webpack_require__(/*! ../internals/native-promise-constructor */ "../node_modules/core-js/internals/native-promise-constructor.js");
-var fails = __webpack_require__(/*! ../internals/fails */ "../node_modules/core-js/internals/fails.js");
-var getBuiltIn = __webpack_require__(/*! ../internals/get-built-in */ "../node_modules/core-js/internals/get-built-in.js");
-var speciesConstructor = __webpack_require__(/*! ../internals/species-constructor */ "../node_modules/core-js/internals/species-constructor.js");
-var promiseResolve = __webpack_require__(/*! ../internals/promise-resolve */ "../node_modules/core-js/internals/promise-resolve.js");
-var redefine = __webpack_require__(/*! ../internals/redefine */ "../node_modules/core-js/internals/redefine.js");
-
-// Safari bug https://bugs.webkit.org/show_bug.cgi?id=200829
-var NON_GENERIC = !!NativePromise && fails(function () {
-  NativePromise.prototype['finally'].call({ then: function () { /* empty */ } }, function () { /* empty */ });
-});
-
-// `Promise.prototype.finally` method
-// https://tc39.github.io/ecma262/#sec-promise.prototype.finally
-$({ target: 'Promise', proto: true, real: true, forced: NON_GENERIC }, {
-  'finally': function (onFinally) {
-    var C = speciesConstructor(this, getBuiltIn('Promise'));
-    var isFunction = typeof onFinally == 'function';
-    return this.then(
-      isFunction ? function (x) {
-        return promiseResolve(C, onFinally()).then(function () { return x; });
-      } : onFinally,
-      isFunction ? function (e) {
-        return promiseResolve(C, onFinally()).then(function () { throw e; });
-      } : onFinally
-    );
-  }
-});
-
-// patch native Promise.prototype for native async functions
-if (!IS_PURE && typeof NativePromise == 'function' && !NativePromise.prototype['finally']) {
-  redefine(NativePromise.prototype, 'finally', getBuiltIn('Promise').prototype['finally']);
 }
 
 
@@ -3733,6 +4029,25 @@ $({ target: PROMISE, stat: true, forced: INCORRECT_ITERATION }, {
 
 /***/ }),
 
+/***/ "../node_modules/core-js/modules/es.regexp.exec.js":
+/*!*********************************************************!*\
+  !*** ../node_modules/core-js/modules/es.regexp.exec.js ***!
+  \*********************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var $ = __webpack_require__(/*! ../internals/export */ "../node_modules/core-js/internals/export.js");
+var exec = __webpack_require__(/*! ../internals/regexp-exec */ "../node_modules/core-js/internals/regexp-exec.js");
+
+$({ target: 'RegExp', proto: true, forced: /./.exec !== exec }, {
+  exec: exec
+});
+
+
+/***/ }),
+
 /***/ "../node_modules/core-js/modules/es.regexp.to-string.js":
 /*!**************************************************************!*\
   !*** ../node_modules/core-js/modules/es.regexp.to-string.js ***!
@@ -3806,6 +4121,62 @@ defineIterator(String, 'String', function (iterated) {
   point = charAt(string, index);
   state.index += point.length;
   return { value: point, done: false };
+});
+
+
+/***/ }),
+
+/***/ "../node_modules/core-js/modules/es.string.match.js":
+/*!**********************************************************!*\
+  !*** ../node_modules/core-js/modules/es.string.match.js ***!
+  \**********************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var fixRegExpWellKnownSymbolLogic = __webpack_require__(/*! ../internals/fix-regexp-well-known-symbol-logic */ "../node_modules/core-js/internals/fix-regexp-well-known-symbol-logic.js");
+var anObject = __webpack_require__(/*! ../internals/an-object */ "../node_modules/core-js/internals/an-object.js");
+var toLength = __webpack_require__(/*! ../internals/to-length */ "../node_modules/core-js/internals/to-length.js");
+var requireObjectCoercible = __webpack_require__(/*! ../internals/require-object-coercible */ "../node_modules/core-js/internals/require-object-coercible.js");
+var advanceStringIndex = __webpack_require__(/*! ../internals/advance-string-index */ "../node_modules/core-js/internals/advance-string-index.js");
+var regExpExec = __webpack_require__(/*! ../internals/regexp-exec-abstract */ "../node_modules/core-js/internals/regexp-exec-abstract.js");
+
+// @@match logic
+fixRegExpWellKnownSymbolLogic('match', 1, function (MATCH, nativeMatch, maybeCallNative) {
+  return [
+    // `String.prototype.match` method
+    // https://tc39.github.io/ecma262/#sec-string.prototype.match
+    function match(regexp) {
+      var O = requireObjectCoercible(this);
+      var matcher = regexp == undefined ? undefined : regexp[MATCH];
+      return matcher !== undefined ? matcher.call(regexp, O) : new RegExp(regexp)[MATCH](String(O));
+    },
+    // `RegExp.prototype[@@match]` method
+    // https://tc39.github.io/ecma262/#sec-regexp.prototype-@@match
+    function (regexp) {
+      var res = maybeCallNative(nativeMatch, regexp, this);
+      if (res.done) return res.value;
+
+      var rx = anObject(regexp);
+      var S = String(this);
+
+      if (!rx.global) return regExpExec(rx, S);
+
+      var fullUnicode = rx.unicode;
+      rx.lastIndex = 0;
+      var A = [];
+      var n = 0;
+      var result;
+      while ((result = regExpExec(rx, S)) !== null) {
+        var matchStr = String(result[0]);
+        A[n] = matchStr;
+        if (matchStr === '') rx.lastIndex = advanceStringIndex(S, toLength(rx.lastIndex), fullUnicode);
+        n++;
+      }
+      return n === 0 ? null : A;
+    }
+  ];
 });
 
 
@@ -37610,6 +37981,765 @@ if ( true && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed
 
 /***/ }),
 
+/***/ "../node_modules/regenerator-runtime/runtime.js":
+/*!******************************************************!*\
+  !*** ../node_modules/regenerator-runtime/runtime.js ***!
+  \******************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+var runtime = (function (exports) {
+  "use strict";
+
+  var Op = Object.prototype;
+  var hasOwn = Op.hasOwnProperty;
+  var undefined; // More compressible than void 0.
+  var $Symbol = typeof Symbol === "function" ? Symbol : {};
+  var iteratorSymbol = $Symbol.iterator || "@@iterator";
+  var asyncIteratorSymbol = $Symbol.asyncIterator || "@@asyncIterator";
+  var toStringTagSymbol = $Symbol.toStringTag || "@@toStringTag";
+
+  function define(obj, key, value) {
+    Object.defineProperty(obj, key, {
+      value: value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+    return obj[key];
+  }
+  try {
+    // IE 8 has a broken Object.defineProperty that only works on DOM objects.
+    define({}, "");
+  } catch (err) {
+    define = function(obj, key, value) {
+      return obj[key] = value;
+    };
+  }
+
+  function wrap(innerFn, outerFn, self, tryLocsList) {
+    // If outerFn provided and outerFn.prototype is a Generator, then outerFn.prototype instanceof Generator.
+    var protoGenerator = outerFn && outerFn.prototype instanceof Generator ? outerFn : Generator;
+    var generator = Object.create(protoGenerator.prototype);
+    var context = new Context(tryLocsList || []);
+
+    // The ._invoke method unifies the implementations of the .next,
+    // .throw, and .return methods.
+    generator._invoke = makeInvokeMethod(innerFn, self, context);
+
+    return generator;
+  }
+  exports.wrap = wrap;
+
+  // Try/catch helper to minimize deoptimizations. Returns a completion
+  // record like context.tryEntries[i].completion. This interface could
+  // have been (and was previously) designed to take a closure to be
+  // invoked without arguments, but in all the cases we care about we
+  // already have an existing method we want to call, so there's no need
+  // to create a new function object. We can even get away with assuming
+  // the method takes exactly one argument, since that happens to be true
+  // in every case, so we don't have to touch the arguments object. The
+  // only additional allocation required is the completion record, which
+  // has a stable shape and so hopefully should be cheap to allocate.
+  function tryCatch(fn, obj, arg) {
+    try {
+      return { type: "normal", arg: fn.call(obj, arg) };
+    } catch (err) {
+      return { type: "throw", arg: err };
+    }
+  }
+
+  var GenStateSuspendedStart = "suspendedStart";
+  var GenStateSuspendedYield = "suspendedYield";
+  var GenStateExecuting = "executing";
+  var GenStateCompleted = "completed";
+
+  // Returning this object from the innerFn has the same effect as
+  // breaking out of the dispatch switch statement.
+  var ContinueSentinel = {};
+
+  // Dummy constructor functions that we use as the .constructor and
+  // .constructor.prototype properties for functions that return Generator
+  // objects. For full spec compliance, you may wish to configure your
+  // minifier not to mangle the names of these two functions.
+  function Generator() {}
+  function GeneratorFunction() {}
+  function GeneratorFunctionPrototype() {}
+
+  // This is a polyfill for %IteratorPrototype% for environments that
+  // don't natively support it.
+  var IteratorPrototype = {};
+  IteratorPrototype[iteratorSymbol] = function () {
+    return this;
+  };
+
+  var getProto = Object.getPrototypeOf;
+  var NativeIteratorPrototype = getProto && getProto(getProto(values([])));
+  if (NativeIteratorPrototype &&
+      NativeIteratorPrototype !== Op &&
+      hasOwn.call(NativeIteratorPrototype, iteratorSymbol)) {
+    // This environment has a native %IteratorPrototype%; use it instead
+    // of the polyfill.
+    IteratorPrototype = NativeIteratorPrototype;
+  }
+
+  var Gp = GeneratorFunctionPrototype.prototype =
+    Generator.prototype = Object.create(IteratorPrototype);
+  GeneratorFunction.prototype = Gp.constructor = GeneratorFunctionPrototype;
+  GeneratorFunctionPrototype.constructor = GeneratorFunction;
+  GeneratorFunction.displayName = define(
+    GeneratorFunctionPrototype,
+    toStringTagSymbol,
+    "GeneratorFunction"
+  );
+
+  // Helper for defining the .next, .throw, and .return methods of the
+  // Iterator interface in terms of a single ._invoke method.
+  function defineIteratorMethods(prototype) {
+    ["next", "throw", "return"].forEach(function(method) {
+      define(prototype, method, function(arg) {
+        return this._invoke(method, arg);
+      });
+    });
+  }
+
+  exports.isGeneratorFunction = function(genFun) {
+    var ctor = typeof genFun === "function" && genFun.constructor;
+    return ctor
+      ? ctor === GeneratorFunction ||
+        // For the native GeneratorFunction constructor, the best we can
+        // do is to check its .name property.
+        (ctor.displayName || ctor.name) === "GeneratorFunction"
+      : false;
+  };
+
+  exports.mark = function(genFun) {
+    if (Object.setPrototypeOf) {
+      Object.setPrototypeOf(genFun, GeneratorFunctionPrototype);
+    } else {
+      genFun.__proto__ = GeneratorFunctionPrototype;
+      define(genFun, toStringTagSymbol, "GeneratorFunction");
+    }
+    genFun.prototype = Object.create(Gp);
+    return genFun;
+  };
+
+  // Within the body of any async function, `await x` is transformed to
+  // `yield regeneratorRuntime.awrap(x)`, so that the runtime can test
+  // `hasOwn.call(value, "__await")` to determine if the yielded value is
+  // meant to be awaited.
+  exports.awrap = function(arg) {
+    return { __await: arg };
+  };
+
+  function AsyncIterator(generator, PromiseImpl) {
+    function invoke(method, arg, resolve, reject) {
+      var record = tryCatch(generator[method], generator, arg);
+      if (record.type === "throw") {
+        reject(record.arg);
+      } else {
+        var result = record.arg;
+        var value = result.value;
+        if (value &&
+            typeof value === "object" &&
+            hasOwn.call(value, "__await")) {
+          return PromiseImpl.resolve(value.__await).then(function(value) {
+            invoke("next", value, resolve, reject);
+          }, function(err) {
+            invoke("throw", err, resolve, reject);
+          });
+        }
+
+        return PromiseImpl.resolve(value).then(function(unwrapped) {
+          // When a yielded Promise is resolved, its final value becomes
+          // the .value of the Promise<{value,done}> result for the
+          // current iteration.
+          result.value = unwrapped;
+          resolve(result);
+        }, function(error) {
+          // If a rejected Promise was yielded, throw the rejection back
+          // into the async generator function so it can be handled there.
+          return invoke("throw", error, resolve, reject);
+        });
+      }
+    }
+
+    var previousPromise;
+
+    function enqueue(method, arg) {
+      function callInvokeWithMethodAndArg() {
+        return new PromiseImpl(function(resolve, reject) {
+          invoke(method, arg, resolve, reject);
+        });
+      }
+
+      return previousPromise =
+        // If enqueue has been called before, then we want to wait until
+        // all previous Promises have been resolved before calling invoke,
+        // so that results are always delivered in the correct order. If
+        // enqueue has not been called before, then it is important to
+        // call invoke immediately, without waiting on a callback to fire,
+        // so that the async generator function has the opportunity to do
+        // any necessary setup in a predictable way. This predictability
+        // is why the Promise constructor synchronously invokes its
+        // executor callback, and why async functions synchronously
+        // execute code before the first await. Since we implement simple
+        // async functions in terms of async generators, it is especially
+        // important to get this right, even though it requires care.
+        previousPromise ? previousPromise.then(
+          callInvokeWithMethodAndArg,
+          // Avoid propagating failures to Promises returned by later
+          // invocations of the iterator.
+          callInvokeWithMethodAndArg
+        ) : callInvokeWithMethodAndArg();
+    }
+
+    // Define the unified helper method that is used to implement .next,
+    // .throw, and .return (see defineIteratorMethods).
+    this._invoke = enqueue;
+  }
+
+  defineIteratorMethods(AsyncIterator.prototype);
+  AsyncIterator.prototype[asyncIteratorSymbol] = function () {
+    return this;
+  };
+  exports.AsyncIterator = AsyncIterator;
+
+  // Note that simple async functions are implemented on top of
+  // AsyncIterator objects; they just return a Promise for the value of
+  // the final result produced by the iterator.
+  exports.async = function(innerFn, outerFn, self, tryLocsList, PromiseImpl) {
+    if (PromiseImpl === void 0) PromiseImpl = Promise;
+
+    var iter = new AsyncIterator(
+      wrap(innerFn, outerFn, self, tryLocsList),
+      PromiseImpl
+    );
+
+    return exports.isGeneratorFunction(outerFn)
+      ? iter // If outerFn is a generator, return the full iterator.
+      : iter.next().then(function(result) {
+          return result.done ? result.value : iter.next();
+        });
+  };
+
+  function makeInvokeMethod(innerFn, self, context) {
+    var state = GenStateSuspendedStart;
+
+    return function invoke(method, arg) {
+      if (state === GenStateExecuting) {
+        throw new Error("Generator is already running");
+      }
+
+      if (state === GenStateCompleted) {
+        if (method === "throw") {
+          throw arg;
+        }
+
+        // Be forgiving, per 25.3.3.3.3 of the spec:
+        // https://people.mozilla.org/~jorendorff/es6-draft.html#sec-generatorresume
+        return doneResult();
+      }
+
+      context.method = method;
+      context.arg = arg;
+
+      while (true) {
+        var delegate = context.delegate;
+        if (delegate) {
+          var delegateResult = maybeInvokeDelegate(delegate, context);
+          if (delegateResult) {
+            if (delegateResult === ContinueSentinel) continue;
+            return delegateResult;
+          }
+        }
+
+        if (context.method === "next") {
+          // Setting context._sent for legacy support of Babel's
+          // function.sent implementation.
+          context.sent = context._sent = context.arg;
+
+        } else if (context.method === "throw") {
+          if (state === GenStateSuspendedStart) {
+            state = GenStateCompleted;
+            throw context.arg;
+          }
+
+          context.dispatchException(context.arg);
+
+        } else if (context.method === "return") {
+          context.abrupt("return", context.arg);
+        }
+
+        state = GenStateExecuting;
+
+        var record = tryCatch(innerFn, self, context);
+        if (record.type === "normal") {
+          // If an exception is thrown from innerFn, we leave state ===
+          // GenStateExecuting and loop back for another invocation.
+          state = context.done
+            ? GenStateCompleted
+            : GenStateSuspendedYield;
+
+          if (record.arg === ContinueSentinel) {
+            continue;
+          }
+
+          return {
+            value: record.arg,
+            done: context.done
+          };
+
+        } else if (record.type === "throw") {
+          state = GenStateCompleted;
+          // Dispatch the exception by looping back around to the
+          // context.dispatchException(context.arg) call above.
+          context.method = "throw";
+          context.arg = record.arg;
+        }
+      }
+    };
+  }
+
+  // Call delegate.iterator[context.method](context.arg) and handle the
+  // result, either by returning a { value, done } result from the
+  // delegate iterator, or by modifying context.method and context.arg,
+  // setting context.delegate to null, and returning the ContinueSentinel.
+  function maybeInvokeDelegate(delegate, context) {
+    var method = delegate.iterator[context.method];
+    if (method === undefined) {
+      // A .throw or .return when the delegate iterator has no .throw
+      // method always terminates the yield* loop.
+      context.delegate = null;
+
+      if (context.method === "throw") {
+        // Note: ["return"] must be used for ES3 parsing compatibility.
+        if (delegate.iterator["return"]) {
+          // If the delegate iterator has a return method, give it a
+          // chance to clean up.
+          context.method = "return";
+          context.arg = undefined;
+          maybeInvokeDelegate(delegate, context);
+
+          if (context.method === "throw") {
+            // If maybeInvokeDelegate(context) changed context.method from
+            // "return" to "throw", let that override the TypeError below.
+            return ContinueSentinel;
+          }
+        }
+
+        context.method = "throw";
+        context.arg = new TypeError(
+          "The iterator does not provide a 'throw' method");
+      }
+
+      return ContinueSentinel;
+    }
+
+    var record = tryCatch(method, delegate.iterator, context.arg);
+
+    if (record.type === "throw") {
+      context.method = "throw";
+      context.arg = record.arg;
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    var info = record.arg;
+
+    if (! info) {
+      context.method = "throw";
+      context.arg = new TypeError("iterator result is not an object");
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    if (info.done) {
+      // Assign the result of the finished delegate to the temporary
+      // variable specified by delegate.resultName (see delegateYield).
+      context[delegate.resultName] = info.value;
+
+      // Resume execution at the desired location (see delegateYield).
+      context.next = delegate.nextLoc;
+
+      // If context.method was "throw" but the delegate handled the
+      // exception, let the outer generator proceed normally. If
+      // context.method was "next", forget context.arg since it has been
+      // "consumed" by the delegate iterator. If context.method was
+      // "return", allow the original .return call to continue in the
+      // outer generator.
+      if (context.method !== "return") {
+        context.method = "next";
+        context.arg = undefined;
+      }
+
+    } else {
+      // Re-yield the result returned by the delegate method.
+      return info;
+    }
+
+    // The delegate iterator is finished, so forget it and continue with
+    // the outer generator.
+    context.delegate = null;
+    return ContinueSentinel;
+  }
+
+  // Define Generator.prototype.{next,throw,return} in terms of the
+  // unified ._invoke helper method.
+  defineIteratorMethods(Gp);
+
+  define(Gp, toStringTagSymbol, "Generator");
+
+  // A Generator should always return itself as the iterator object when the
+  // @@iterator function is called on it. Some browsers' implementations of the
+  // iterator prototype chain incorrectly implement this, causing the Generator
+  // object to not be returned from this call. This ensures that doesn't happen.
+  // See https://github.com/facebook/regenerator/issues/274 for more details.
+  Gp[iteratorSymbol] = function() {
+    return this;
+  };
+
+  Gp.toString = function() {
+    return "[object Generator]";
+  };
+
+  function pushTryEntry(locs) {
+    var entry = { tryLoc: locs[0] };
+
+    if (1 in locs) {
+      entry.catchLoc = locs[1];
+    }
+
+    if (2 in locs) {
+      entry.finallyLoc = locs[2];
+      entry.afterLoc = locs[3];
+    }
+
+    this.tryEntries.push(entry);
+  }
+
+  function resetTryEntry(entry) {
+    var record = entry.completion || {};
+    record.type = "normal";
+    delete record.arg;
+    entry.completion = record;
+  }
+
+  function Context(tryLocsList) {
+    // The root entry object (effectively a try statement without a catch
+    // or a finally block) gives us a place to store values thrown from
+    // locations where there is no enclosing try statement.
+    this.tryEntries = [{ tryLoc: "root" }];
+    tryLocsList.forEach(pushTryEntry, this);
+    this.reset(true);
+  }
+
+  exports.keys = function(object) {
+    var keys = [];
+    for (var key in object) {
+      keys.push(key);
+    }
+    keys.reverse();
+
+    // Rather than returning an object with a next method, we keep
+    // things simple and return the next function itself.
+    return function next() {
+      while (keys.length) {
+        var key = keys.pop();
+        if (key in object) {
+          next.value = key;
+          next.done = false;
+          return next;
+        }
+      }
+
+      // To avoid creating an additional object, we just hang the .value
+      // and .done properties off the next function object itself. This
+      // also ensures that the minifier will not anonymize the function.
+      next.done = true;
+      return next;
+    };
+  };
+
+  function values(iterable) {
+    if (iterable) {
+      var iteratorMethod = iterable[iteratorSymbol];
+      if (iteratorMethod) {
+        return iteratorMethod.call(iterable);
+      }
+
+      if (typeof iterable.next === "function") {
+        return iterable;
+      }
+
+      if (!isNaN(iterable.length)) {
+        var i = -1, next = function next() {
+          while (++i < iterable.length) {
+            if (hasOwn.call(iterable, i)) {
+              next.value = iterable[i];
+              next.done = false;
+              return next;
+            }
+          }
+
+          next.value = undefined;
+          next.done = true;
+
+          return next;
+        };
+
+        return next.next = next;
+      }
+    }
+
+    // Return an iterator with no values.
+    return { next: doneResult };
+  }
+  exports.values = values;
+
+  function doneResult() {
+    return { value: undefined, done: true };
+  }
+
+  Context.prototype = {
+    constructor: Context,
+
+    reset: function(skipTempReset) {
+      this.prev = 0;
+      this.next = 0;
+      // Resetting context._sent for legacy support of Babel's
+      // function.sent implementation.
+      this.sent = this._sent = undefined;
+      this.done = false;
+      this.delegate = null;
+
+      this.method = "next";
+      this.arg = undefined;
+
+      this.tryEntries.forEach(resetTryEntry);
+
+      if (!skipTempReset) {
+        for (var name in this) {
+          // Not sure about the optimal order of these conditions:
+          if (name.charAt(0) === "t" &&
+              hasOwn.call(this, name) &&
+              !isNaN(+name.slice(1))) {
+            this[name] = undefined;
+          }
+        }
+      }
+    },
+
+    stop: function() {
+      this.done = true;
+
+      var rootEntry = this.tryEntries[0];
+      var rootRecord = rootEntry.completion;
+      if (rootRecord.type === "throw") {
+        throw rootRecord.arg;
+      }
+
+      return this.rval;
+    },
+
+    dispatchException: function(exception) {
+      if (this.done) {
+        throw exception;
+      }
+
+      var context = this;
+      function handle(loc, caught) {
+        record.type = "throw";
+        record.arg = exception;
+        context.next = loc;
+
+        if (caught) {
+          // If the dispatched exception was caught by a catch block,
+          // then let that catch block handle the exception normally.
+          context.method = "next";
+          context.arg = undefined;
+        }
+
+        return !! caught;
+      }
+
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        var record = entry.completion;
+
+        if (entry.tryLoc === "root") {
+          // Exception thrown outside of any try block that could handle
+          // it, so set the completion value of the entire function to
+          // throw the exception.
+          return handle("end");
+        }
+
+        if (entry.tryLoc <= this.prev) {
+          var hasCatch = hasOwn.call(entry, "catchLoc");
+          var hasFinally = hasOwn.call(entry, "finallyLoc");
+
+          if (hasCatch && hasFinally) {
+            if (this.prev < entry.catchLoc) {
+              return handle(entry.catchLoc, true);
+            } else if (this.prev < entry.finallyLoc) {
+              return handle(entry.finallyLoc);
+            }
+
+          } else if (hasCatch) {
+            if (this.prev < entry.catchLoc) {
+              return handle(entry.catchLoc, true);
+            }
+
+          } else if (hasFinally) {
+            if (this.prev < entry.finallyLoc) {
+              return handle(entry.finallyLoc);
+            }
+
+          } else {
+            throw new Error("try statement without catch or finally");
+          }
+        }
+      }
+    },
+
+    abrupt: function(type, arg) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.tryLoc <= this.prev &&
+            hasOwn.call(entry, "finallyLoc") &&
+            this.prev < entry.finallyLoc) {
+          var finallyEntry = entry;
+          break;
+        }
+      }
+
+      if (finallyEntry &&
+          (type === "break" ||
+           type === "continue") &&
+          finallyEntry.tryLoc <= arg &&
+          arg <= finallyEntry.finallyLoc) {
+        // Ignore the finally entry if control is not jumping to a
+        // location outside the try/catch block.
+        finallyEntry = null;
+      }
+
+      var record = finallyEntry ? finallyEntry.completion : {};
+      record.type = type;
+      record.arg = arg;
+
+      if (finallyEntry) {
+        this.method = "next";
+        this.next = finallyEntry.finallyLoc;
+        return ContinueSentinel;
+      }
+
+      return this.complete(record);
+    },
+
+    complete: function(record, afterLoc) {
+      if (record.type === "throw") {
+        throw record.arg;
+      }
+
+      if (record.type === "break" ||
+          record.type === "continue") {
+        this.next = record.arg;
+      } else if (record.type === "return") {
+        this.rval = this.arg = record.arg;
+        this.method = "return";
+        this.next = "end";
+      } else if (record.type === "normal" && afterLoc) {
+        this.next = afterLoc;
+      }
+
+      return ContinueSentinel;
+    },
+
+    finish: function(finallyLoc) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.finallyLoc === finallyLoc) {
+          this.complete(entry.completion, entry.afterLoc);
+          resetTryEntry(entry);
+          return ContinueSentinel;
+        }
+      }
+    },
+
+    "catch": function(tryLoc) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.tryLoc === tryLoc) {
+          var record = entry.completion;
+          if (record.type === "throw") {
+            var thrown = record.arg;
+            resetTryEntry(entry);
+          }
+          return thrown;
+        }
+      }
+
+      // The context.catch method must only be called with a location
+      // argument that corresponds to a known catch block.
+      throw new Error("illegal catch attempt");
+    },
+
+    delegateYield: function(iterable, resultName, nextLoc) {
+      this.delegate = {
+        iterator: values(iterable),
+        resultName: resultName,
+        nextLoc: nextLoc
+      };
+
+      if (this.method === "next") {
+        // Deliberately forget the last sent value so that we don't
+        // accidentally pass it on to the delegate.
+        this.arg = undefined;
+      }
+
+      return ContinueSentinel;
+    }
+  };
+
+  // Regardless of whether this script is executing as a CommonJS module
+  // or not, return the runtime object so that we can declare the variable
+  // regeneratorRuntime in the outer scope, which allows this module to be
+  // injected easily by `bin/regenerator --include-runtime script.js`.
+  return exports;
+
+}(
+  // If this script is executing as a CommonJS module, use module.exports
+  // as the regeneratorRuntime namespace. Otherwise create a new empty
+  // object. Either way, the resulting object will be used to initialize
+  // the regeneratorRuntime variable at the top of this file.
+   true ? module.exports : undefined
+));
+
+try {
+  regeneratorRuntime = runtime;
+} catch (accidentalStrictMode) {
+  // This module should not be running in strict mode, so the above
+  // assignment should always work unless something is misconfigured. Just
+  // in case runtime.js accidentally runs in strict mode, we can escape
+  // strict mode using a global Function call. This could conceivably fail
+  // if a Content Security Policy forbids using Function, but in that case
+  // the proper solution is to fix the accidental strict mode problem. If
+  // you've misconfigured your bundler to force strict mode and applied a
+  // CSP to forbid Function, and you're not willing to fix either of those
+  // problems, please detail your unique predicament in a GitHub issue.
+  Function("r", "regeneratorRuntime = r")(runtime);
+}
+
+
+/***/ }),
+
 /***/ "../node_modules/resolve-pathname/esm/resolve-pathname.js":
 /*!****************************************************************!*\
   !*** ../node_modules/resolve-pathname/esm/resolve-pathname.js ***!
@@ -39233,6 +40363,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _register__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../register */ "./src/components/register/index.ts");
 /* harmony import */ var _profile__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../profile */ "./src/components/profile/index.ts");
 /* harmony import */ var _cards__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../cards */ "./src/components/cards/index.ts");
+/* harmony import */ var _contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../../contexts/memory-card-api-context */ "./src/contexts/memory-card-api-context.ts");
+/* harmony import */ var _services_memory_card_api__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../../services/memory-card-api */ "./src/services/memory-card-api.ts");
 
 
 
@@ -39243,9 +40375,14 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
+
+
+var memoryCardApi = new _services_memory_card_api__WEBPACK_IMPORTED_MODULE_11__["MemoryCardApi"]();
 var App = function App() {
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(react_redux__WEBPACK_IMPORTED_MODULE_2__["Provider"], {
     store: _store__WEBPACK_IMPORTED_MODULE_4__["store"]
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_10__["MemoryCardApiContext"].Provider, {
+    value: memoryCardApi
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(react_router_dom__WEBPACK_IMPORTED_MODULE_1__["BrowserRouter"], null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_navbar__WEBPACK_IMPORTED_MODULE_5__["Navbar"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(react_router_dom__WEBPACK_IMPORTED_MODULE_1__["Switch"], null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(react_router_dom__WEBPACK_IMPORTED_MODULE_1__["Route"], {
     path: "/login",
     component: _login__WEBPACK_IMPORTED_MODULE_6__["Login"]
@@ -39262,7 +40399,7 @@ var App = function App() {
     render: function render() {
       return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("h2", null, "Page not found");
     }
-  }))));
+  })))));
 };
 
 /***/ }),
@@ -39778,6 +40915,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! react-redux */ "../node_modules/react-redux/es/index.js");
 /* harmony import */ var _hooks_use_field__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! ../../hooks/use-field */ "./src/hooks/use-field.ts");
 /* harmony import */ var _reducers_register_reducer_actions__WEBPACK_IMPORTED_MODULE_17__ = __webpack_require__(/*! ../../reducers/register-reducer/actions */ "./src/reducers/register-reducer/actions.ts");
+/* harmony import */ var _utils_validation__WEBPACK_IMPORTED_MODULE_18__ = __webpack_require__(/*! ../../utils/validation */ "./src/utils/validation.ts");
+/* harmony import */ var _contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_19__ = __webpack_require__(/*! ../../contexts/memory-card-api-context */ "./src/contexts/memory-card-api-context.ts");
 
 
 
@@ -39809,7 +40948,11 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 
 
+
+
 var Register = function Register() {
+  var memoryCardApi = Object(react__WEBPACK_IMPORTED_MODULE_13__["useContext"])(_contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_19__["MemoryCardApiContext"]);
+
   var _useState = Object(react__WEBPACK_IMPORTED_MODULE_13__["useState"])(''),
       _useState2 = _slicedToArray(_useState, 2),
       email = _useState2[0],
@@ -39825,36 +40968,51 @@ var Register = function Register() {
       confirmPassword = _useState6[0],
       setConfirmPassword = _useState6[1];
 
+  var _useState7 = Object(react__WEBPACK_IMPORTED_MODULE_13__["useState"])(''),
+      _useState8 = _slicedToArray(_useState7, 2),
+      validationStatus = _useState8[0],
+      setValidationStatus = _useState8[1];
+
   var _useSelector = Object(react_redux__WEBPACK_IMPORTED_MODULE_15__["useSelector"])(function (state) {
     return state.register;
   }),
       isLoading = _useSelector.isLoading,
       isError = _useSelector.isError,
-      isSuccess = _useSelector.isSuccess;
+      isSuccess = _useSelector.isSuccess,
+      message = _useSelector.message;
 
-  var status = '';
+  var serverStatus = '';
 
   if (isLoading) {
-    status = 'Loading...';
+    serverStatus = 'Loading...';
   }
 
   if (isError) {
-    status = 'Error!';
+    serverStatus = 'Error!';
   }
 
   if (isSuccess) {
-    status = 'Register success';
+    serverStatus = message;
   }
 
   var dispatch = Object(react_redux__WEBPACK_IMPORTED_MODULE_15__["useDispatch"])();
 
   function handleSubmit(evt) {
     evt.preventDefault();
-    dispatch(Object(_reducers_register_reducer_actions__WEBPACK_IMPORTED_MODULE_17__["registrationAttempt"])({
-      email: email,
-      password: password,
-      confirmPassword: confirmPassword
-    }));
+
+    var _registerFormValidati = Object(_utils_validation__WEBPACK_IMPORTED_MODULE_18__["registerFormValidation"])(email, password, confirmPassword),
+        isSuccess = _registerFormValidati.isSuccess,
+        message = _registerFormValidati.message;
+
+    if (isSuccess) {
+      setValidationStatus('');
+      dispatch(Object(_reducers_register_reducer_actions__WEBPACK_IMPORTED_MODULE_17__["registrationAttempt"])({
+        email: email,
+        password: password
+      }, memoryCardApi));
+    } else {
+      setValidationStatus(message);
+    }
   }
 
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("div", {
@@ -39877,6 +41035,8 @@ var Register = function Register() {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("input", {
     type: "password",
     placeholder: "Password",
+    minLength: 8,
+    maxLength: 16,
     onChange: function onChange(evt) {
       return Object(_hooks_use_field__WEBPACK_IMPORTED_MODULE_16__["useField"])(evt.target.value, setPassword);
     },
@@ -39886,15 +41046,37 @@ var Register = function Register() {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("input", {
     type: "password",
     placeholder: "Confirm password",
+    minLength: 8,
+    maxLength: 16,
     onChange: function onChange(evt) {
       return Object(_hooks_use_field__WEBPACK_IMPORTED_MODULE_16__["useField"])(evt.target.value, setConfirmPassword);
     },
     required: true
-  })), status, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("button", {
+  })), validationStatus, serverStatus, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("button", {
     type: "submit",
     className: "btn btn-primary"
-  }, "Submit"))));
+  }, "Submit"), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("p", null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("b", null, "Password must contain the following:")), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("p", null, "A", ' ', /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("b", null, "lowercase"), ' ', "letter"), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("p", null, "A", ' ', /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("b", null, "capital (uppercase)"), ' ', "letter"), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("p", null, "A", ' ', /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("b", null, "number")), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("p", null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("b", null, "8-16 characters")))));
 };
+
+/***/ }),
+
+/***/ "./src/contexts/memory-card-api-context.ts":
+/*!*************************************************!*\
+  !*** ./src/contexts/memory-card-api-context.ts ***!
+  \*************************************************/
+/*! exports provided: MemoryCardApiContext */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "MemoryCardApiContext", function() { return MemoryCardApiContext; });
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react */ "../node_modules/react/index.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _services_memory_card_api__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../services/memory-card-api */ "./src/services/memory-card-api.ts");
+
+
+var MemoryCardApiContext = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default.a.createContext(new _services_memory_card_api__WEBPACK_IMPORTED_MODULE_1__["MemoryCardApi"]());
+
 
 /***/ }),
 
@@ -39993,26 +41175,23 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.promise */ "../node_modules/core-js/modules/es.promise.js");
 /* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! core-js/modules/es.promise.finally */ "../node_modules/core-js/modules/es.promise.finally.js");
-/* harmony import */ var core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var _actions_constant__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./actions-constant */ "./src/reducers/login-reducer/actions-constant.ts");
-
+/* harmony import */ var _actions_constant__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./actions-constant */ "./src/reducers/login-reducer/actions-constant.ts");
 
 
 
 function loginRequest() {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_3__["LOGIN_REQUEST"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_REQUEST"]
   };
 }
 function loginFailure() {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_3__["LOGIN_FAILURE"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_FAILURE"]
   };
 }
 function loginSuccess() {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_3__["LOGIN_SUCCESS"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_SUCCESS"]
   };
 }
 function loginAttempt(data) {
@@ -40028,8 +41207,6 @@ function loginAttempt(data) {
       dispatch(loginSuccess());
     })["catch"](function (err) {
       dispatch(loginFailure());
-    })["finally"](function () {
-      return console.log(getState());
     });
   };
 }
@@ -40054,7 +41231,8 @@ __webpack_require__.r(__webpack_exports__);
 var initialState = {
   isError: false,
   isLoading: false,
-  isSuccess: false
+  isSuccess: false,
+  message: ''
 };
 function loginReducer() {
   var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
@@ -40065,7 +41243,8 @@ function loginReducer() {
       return {
         isError: false,
         isSuccess: false,
-        isLoading: true
+        isLoading: true,
+        message: ''
       };
 
     case _actions_constant__WEBPACK_IMPORTED_MODULE_1__["LOGIN_FAILURE"]:
@@ -40118,47 +41297,31 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registerFailure", function() { return registerFailure; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registerSuccess", function() { return registerSuccess; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registrationAttempt", function() { return registrationAttempt; });
-/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! core-js/modules/es.object.to-string */ "../node_modules/core-js/modules/es.object.to-string.js");
-/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.promise */ "../node_modules/core-js/modules/es.promise.js");
-/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! core-js/modules/es.promise.finally */ "../node_modules/core-js/modules/es.promise.finally.js");
-/* harmony import */ var core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise_finally__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var _actions_constants__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./actions-constants */ "./src/reducers/register-reducer/actions-constants.ts");
-
-
-
+/* harmony import */ var _actions_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./actions-constants */ "./src/reducers/register-reducer/actions-constants.ts");
 
 function registerRequest() {
   return {
-    type: _actions_constants__WEBPACK_IMPORTED_MODULE_3__["REGISTER_REQUEST"]
+    type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_REQUEST"]
   };
 }
 function registerFailure() {
   return {
-    type: _actions_constants__WEBPACK_IMPORTED_MODULE_3__["REGISTER_FAILURE"]
+    type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_FAILURE"]
   };
 }
-function registerSuccess() {
+function registerSuccess(message) {
   return {
-    type: _actions_constants__WEBPACK_IMPORTED_MODULE_3__["REGISTER_SUCCESS"]
+    type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_SUCCESS"],
+    payload: message
   };
 }
-function registrationAttempt(data) {
-  return function (dispatch, getState) {
+function registrationAttempt(data, memoryCardApi) {
+  return function (dispatch) {
     dispatch(registerRequest());
-    return fetch('/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    }).then(function (res) {
-      dispatch(registerSuccess());
-    })["catch"](function (err) {
+    return memoryCardApi.getRegistered(data).then(function (message) {
+      dispatch(registerSuccess(message));
+    })["catch"](function () {
       dispatch(registerFailure());
-    })["finally"](function () {
-      return console.log(getState());
     });
   };
 }
@@ -40183,7 +41346,8 @@ __webpack_require__.r(__webpack_exports__);
 var initialState = {
   isError: false,
   isLoading: false,
-  isSuccess: false
+  isSuccess: false,
+  message: ''
 };
 function registerReducer() {
   var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
@@ -40194,7 +41358,8 @@ function registerReducer() {
       return {
         isError: false,
         isSuccess: false,
-        isLoading: true
+        isLoading: true,
+        message: ''
       };
 
     case _actions_constants__WEBPACK_IMPORTED_MODULE_1__["REGISTER_FAILURE"]:
@@ -40206,13 +41371,134 @@ function registerReducer() {
     case _actions_constants__WEBPACK_IMPORTED_MODULE_1__["REGISTER_SUCCESS"]:
       return Object.assign(Object.assign({}, state), {
         isLoading: false,
-        isSuccess: true
+        isSuccess: true,
+        message: action.payload
       });
 
     default:
       return state;
   }
 }
+
+/***/ }),
+
+/***/ "./src/services/memory-card-api.ts":
+/*!*****************************************!*\
+  !*** ./src/services/memory-card-api.ts ***!
+  \*****************************************/
+/*! exports provided: MemoryCardApi */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "MemoryCardApi", function() { return MemoryCardApi; });
+/* harmony import */ var core_js_modules_es_object_define_property__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! core-js/modules/es.object.define-property */ "../node_modules/core-js/modules/es.object.define-property.js");
+/* harmony import */ var core_js_modules_es_object_define_property__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_object_define_property__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.object.to-string */ "../node_modules/core-js/modules/es.object.to-string.js");
+/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! core-js/modules/es.promise */ "../node_modules/core-js/modules/es.promise.js");
+/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var regenerator_runtime_runtime__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! regenerator-runtime/runtime */ "../node_modules/regenerator-runtime/runtime.js");
+/* harmony import */ var regenerator_runtime_runtime__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(regenerator_runtime_runtime__WEBPACK_IMPORTED_MODULE_3__);
+
+
+
+
+
+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { Promise.resolve(value).then(_next, _throw); } }
+
+function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var MemoryCardApi = /*#__PURE__*/function () {
+  function MemoryCardApi() {
+    _classCallCheck(this, MemoryCardApi);
+  }
+
+  _createClass(MemoryCardApi, [{
+    key: "httpRequest",
+    value: function () {
+      var _httpRequest = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, method, headers, data) {
+        var response;
+        return regeneratorRuntime.wrap(function _callee$(_context) {
+          while (1) {
+            switch (_context.prev = _context.next) {
+              case 0:
+                _context.next = 2;
+                return fetch('/auth/register', {
+                  method: method,
+                  headers: headers,
+                  body: JSON.stringify(data)
+                });
+
+              case 2:
+                response = _context.sent;
+
+                if (!response.ok) {
+                  _context.next = 5;
+                  break;
+                }
+
+                return _context.abrupt("return", response.json());
+
+              case 5:
+                throw new Error();
+
+              case 6:
+              case "end":
+                return _context.stop();
+            }
+          }
+        }, _callee);
+      }));
+
+      function httpRequest(_x, _x2, _x3, _x4) {
+        return _httpRequest.apply(this, arguments);
+      }
+
+      return httpRequest;
+    }()
+  }, {
+    key: "getRegistered",
+    value: function () {
+      var _getRegistered = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(postData) {
+        var headers, data;
+        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+          while (1) {
+            switch (_context2.prev = _context2.next) {
+              case 0:
+                headers = new Headers();
+                headers.append('Content-type', 'application/json');
+                _context2.next = 4;
+                return this.httpRequest('/auth/register', 'POST', headers, postData);
+
+              case 4:
+                data = _context2.sent;
+                return _context2.abrupt("return", data.message);
+
+              case 6:
+              case "end":
+                return _context2.stop();
+            }
+          }
+        }, _callee2, this);
+      }));
+
+      function getRegistered(_x5) {
+        return _getRegistered.apply(this, arguments);
+      }
+
+      return getRegistered;
+    }()
+  }]);
+
+  return MemoryCardApi;
+}();
 
 /***/ }),
 
@@ -40233,6 +41519,62 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var store = Object(redux__WEBPACK_IMPORTED_MODULE_0__["createStore"])(_reducers__WEBPACK_IMPORTED_MODULE_2__["reducer"], Object(redux__WEBPACK_IMPORTED_MODULE_0__["applyMiddleware"])(redux_thunk__WEBPACK_IMPORTED_MODULE_1__["default"]));
+
+/***/ }),
+
+/***/ "./src/utils/validation.ts":
+/*!*********************************!*\
+  !*** ./src/utils/validation.ts ***!
+  \*********************************/
+/*! exports provided: passwordValidation, emailValidation, registerFormValidation */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "passwordValidation", function() { return passwordValidation; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "emailValidation", function() { return emailValidation; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registerFormValidation", function() { return registerFormValidation; });
+/* harmony import */ var core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! core-js/modules/es.regexp.exec */ "../node_modules/core-js/modules/es.regexp.exec.js");
+/* harmony import */ var core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var core_js_modules_es_string_match__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.string.match */ "../node_modules/core-js/modules/es.string.match.js");
+/* harmony import */ var core_js_modules_es_string_match__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_string_match__WEBPACK_IMPORTED_MODULE_1__);
+
+
+function passwordValidation(password) {
+  var pattern = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$/;
+  return !!password.match(pattern);
+}
+function emailValidation(email) {
+  var pattern = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+  return !!email.match(pattern);
+}
+function registerFormValidation(email, password, confirmPassword) {
+  if (!emailValidation(email)) {
+    return {
+      isSuccess: false,
+      message: 'Email validation error!'
+    };
+  }
+
+  if (!passwordValidation(password)) {
+    return {
+      isSuccess: false,
+      message: 'Password validation error!'
+    };
+  }
+
+  if (password === confirmPassword) {
+    return {
+      isSuccess: true,
+      message: ''
+    };
+  }
+
+  return {
+    isSuccess: false,
+    message: 'Passwords don\'t match'
+  };
+}
 
 /***/ })
 

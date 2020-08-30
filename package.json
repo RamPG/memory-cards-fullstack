@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build-backend": "node backend",
-    "dev-backend": "npm run build-frontend && nodemon backend",
+    "dev-backend": "nodemon backend",
     "build-frontend": "cd frontend && webpack",
     "dev-frontend": "cd frontend && webpack-dev-server"
   },
@@ -51,6 +51,7 @@
     "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
+    "argon2": "^0.27.0",
     "core-js": "^3.6.5",
     "express": "^4.17.1",
     "mongoose": "^5.10.0",

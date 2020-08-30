@@ -1,19 +1,9 @@
-const mongoose = require('mongoose');
+const Registration = require('../models/registration');
 
-const test = new mongoose.Schema({
-  email: String,
-  password: String,
-  confirmPassword: String,
-});
-
-exports.registerGetData = function (request, response) {
-  const User = mongoose.model('User', test);
-  const user = new User({
-    email: request.body.email,
-    password: request.body.password,
-    confirmPassword: request.body.confirmPassword,
-  });
-  user.save(() => {
-    response.sendStatus(200);
+module.exports.register = async function (request, response) {
+  const userRegister = new Registration();
+  const status = await userRegister.registrationsUser(request.body.email, request.body.password);
+  response.status(status[0]).json({
+    message: status[1],
   });
 };

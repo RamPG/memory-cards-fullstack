@@ -9,6 +9,7 @@ const initialState: AuthenticationStateType = {
   isError: false,
   isLoading: false,
   isSuccess: false,
+  message: '',
 };
 
 export function registerReducer(state: AuthenticationStateType = initialState, action: any) {
@@ -18,6 +19,7 @@ export function registerReducer(state: AuthenticationStateType = initialState, a
         isError: false,
         isSuccess: false,
         isLoading: true,
+        message: '',
       };
     case REGISTER_FAILURE:
       return {
@@ -30,6 +32,7 @@ export function registerReducer(state: AuthenticationStateType = initialState, a
         ...state,
         isLoading: false,
         isSuccess: true,
+        message: action.payload,
       };
     default:
       return state;

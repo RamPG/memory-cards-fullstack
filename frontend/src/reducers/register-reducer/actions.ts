@@ -3,39 +3,41 @@ import {
   REGISTER_FAILURE,
   REGISTER_SUCCESS,
 } from './actions-constants';
+import { MemoryCardApi } from '../../services/memory-card-api';
+import {
+  RegisterFailureActionType,
+  RegisterRequestActionType,
+  RegisterSuccessActionType,
+} from '../../types/actions-types';
+import { PostDataType } from '../../types/request-response-types';
 
-export function registerRequest() {
+export function registerRequest(): RegisterRequestActionType {
   return {
     type: REGISTER_REQUEST,
   };
 }
 
-export function registerFailure() {
+export function registerFailure(): RegisterFailureActionType {
   return {
     type: REGISTER_FAILURE,
   };
 }
 
-export function registerSuccess() {
+export function registerSuccess(message: string): RegisterSuccessActionType {
   return {
     type: REGISTER_SUCCESS,
+    payload: message,
   };
 }
 
-export function registrationAttempt(data: any) {
-  return (dispatch: any, getState: any) => {
+export function registrationAttempt(data: PostDataType, memoryCardApi: MemoryCardApi) {
+  return (dispatch: any) => {
     dispatch(registerRequest());
-    return fetch('/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
-      .then((res) => {
-        dispatch(registerSuccess());
+    return memoryCardApi.getRegistered(data)
+      .then((message) => {
+        dispatch(registerSuccess(message));
       })
-      .catch((err) => {
+      .catch(() => {
         dispatch(registerFailure());
       });
   };

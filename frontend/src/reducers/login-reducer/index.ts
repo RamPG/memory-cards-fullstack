@@ -9,6 +9,7 @@ const initialState: AuthenticationStateType = {
   isError: false,
   isLoading: false,
   isSuccess: false,
+  message: '',
 };
 
 export function loginReducer(state: AuthenticationStateType = initialState, action: any) {
@@ -18,6 +19,7 @@ export function loginReducer(state: AuthenticationStateType = initialState, acti
         isError: false,
         isSuccess: false,
         isLoading: true,
+        message: '',
       };
     case LOGIN_FAILURE:
       return {
