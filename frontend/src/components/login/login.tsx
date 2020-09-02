@@ -1,31 +1,34 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 
 import './login.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import { useField } from '../../hooks/use-field';
-import { AuthenticationStateType, InitialStateType } from '../../types/state-types';
+import { LoginStateType, InitialStateType } from '../../types/state-types';
 import { loginAttempt } from '../../reducers/login-reducer/actions';
+import { MemoryCardApi } from '../../services/memory-card-api';
+import { MemoryCardApiContext } from '../../contexts/memory-card-api-context';
 
 export const Login = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const { isLoading, isError, isSuccess }: AuthenticationStateType = useSelector(
+  const memoryCardApi: MemoryCardApi = useContext(MemoryCardApiContext);
+  const { isLoading, error, success, token }: LoginStateType = useSelector(
     (state: InitialStateType) => state.login,
   );
   let status = '';
   if (isLoading) {
     status = 'Loading...';
   }
-  if (isError) {
-    status = 'Error!';
+  if (error) {
+    status = error;
   }
-  if (isSuccess) {
-    status = 'Login success';
+  if (success) {
+    status = success;
   }
   const dispatch = useDispatch();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>): void {
     evt.preventDefault();
-    dispatch(loginAttempt({ email, password }));
+    dispatch(loginAttempt({ email, password }, memoryCardApi));
   }
   return (
     <div className="container-fluid h-100 text-dark">

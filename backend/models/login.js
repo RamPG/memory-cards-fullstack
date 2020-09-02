@@ -12,12 +12,23 @@ module.exports = class Login {
         const { jwtSecret } = JSON.parse(
           fs.readFileSync(path.resolve(__dirname, '../config/default.json'), 'utf8'),
         );
-        const token = jwt.sign({ email, password }, jwtSecret, { expiresIn: '6h' });
-      } else {
-        console.log('Wrong password!');
+        const token = jwt.sign({ email }, jwtSecret);
+        return {
+          status: 200,
+          message: 'Success login',
+          token,
+        };
       }
-    } else {
-      console.log('User not found');
+      return {
+        status: 401,
+        message: 'Wrong password!',
+        token: '',
+      };
     }
+    return {
+      status: 404,
+      message: 'User not found',
+      token: '',
+    };
   }
 };

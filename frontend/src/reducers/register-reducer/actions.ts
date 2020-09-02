@@ -17,9 +17,10 @@ export function registerRequest(): RegisterRequestActionType {
   };
 }
 
-export function registerFailure(): RegisterFailureActionType {
+export function registerFailure(message: string): RegisterFailureActionType {
   return {
     type: REGISTER_FAILURE,
+    payload: message,
   };
 }
 
@@ -33,12 +34,12 @@ export function registerSuccess(message: string): RegisterSuccessActionType {
 export function registrationAttempt(data: PostDataType, memoryCardApi: MemoryCardApi) {
   return (dispatch: any) => {
     dispatch(registerRequest());
-    return memoryCardApi.getRegistered(data)
-      .then((message) => {
+    return memoryCardApi.getRegister(data)
+      .then(({ message }) => {
         dispatch(registerSuccess(message));
       })
-      .catch(() => {
-        dispatch(registerFailure());
+      .catch((err) => {
+        dispatch(registerFailure(err.message));
       });
   };
 }

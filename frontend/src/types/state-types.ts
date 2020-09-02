@@ -1,11 +1,17 @@
-export type AuthenticationStateType = {
-    isError: boolean,
-    isSuccess: boolean,
+export type RegistrationStateType = {
+    error: string,
+    success: string,
     isLoading: boolean,
-    message: string,
 };
 
+export type LoginStateType = {
+    error: string,
+    success: string,
+    isLoading: boolean,
+    token: string
+}
+
 export type InitialStateType = {
-    login: AuthenticationStateType,
-    register: AuthenticationStateType,
+    login: LoginStateType,
+    register: RegistrationStateType,
 }

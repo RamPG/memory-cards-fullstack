@@ -10,6 +10,7 @@ export type RegisterRequestActionType = {
 
 export type RegisterFailureActionType = {
     type: typeof REGISTER_FAILURE,
+    payload: string,
 };
 
 export type RegisterSuccessActionType = {

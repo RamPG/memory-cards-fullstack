@@ -3,15 +3,25 @@ const User = require('./user');
 
 module.exports = class Register {
   async registrationsUser(email, password) {
+    console.log(1);
     const passwordHashed = await argon2.hash(password);
     const findEmail = await User.findOne({ email });
     if (findEmail) {
-      return [200, 'Email is already registered'];
+      return {
+        status: 400,
+        message: 'Email is already registered',
+      };
     }
     const createUser = await User.create({ email, password: passwordHashed, wordsList: [] });
     if (createUser) {
-      return [200, 'The account is created'];
+      return {
+        status: 200,
+        message: 'The account is created',
+      };
     }
-    return [500, 'Error on server'];
+    return {
+      status: 500,
+      message: 'Error on server',
+    };
   }
 };

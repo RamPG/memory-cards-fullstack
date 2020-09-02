@@ -4,7 +4,7 @@ import './register.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import { useField } from '../../hooks/use-field';
 import { registrationAttempt } from '../../reducers/register-reducer/actions';
-import { InitialStateType, AuthenticationStateType } from '../../types/state-types';
+import { InitialStateType, RegistrationStateType } from '../../types/state-types';
 import { MemoryCardApi } from '../../services/memory-card-api';
 import {
   registerFormValidation,
@@ -19,19 +19,19 @@ export const Register: FunctionComponent = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [validationStatus, setValidationStatus] = useState<string>('');
   const {
-    isLoading, isError, isSuccess, message,
-  }: AuthenticationStateType = useSelector(
+    isLoading, error, success,
+  }: RegistrationStateType = useSelector(
     (state: InitialStateType) => state.register,
   );
   let serverStatus = '';
   if (isLoading) {
     serverStatus = 'Loading...';
   }
-  if (isError) {
-    serverStatus = 'Error!';
+  if (error) {
+    serverStatus = error;
   }
-  if (isSuccess) {
-    serverStatus = message;
+  if (success) {
+    serverStatus = success;
   }
   const dispatch = useDispatch();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>): void {

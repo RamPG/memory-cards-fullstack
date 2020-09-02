@@ -40556,6 +40556,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! react-redux */ "../node_modules/react-redux/es/index.js");
 /* harmony import */ var _hooks_use_field__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! ../../hooks/use-field */ "./src/hooks/use-field.ts");
 /* harmony import */ var _reducers_login_reducer_actions__WEBPACK_IMPORTED_MODULE_17__ = __webpack_require__(/*! ../../reducers/login-reducer/actions */ "./src/reducers/login-reducer/actions.ts");
+/* harmony import */ var _contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_18__ = __webpack_require__(/*! ../../contexts/memory-card-api-context */ "./src/contexts/memory-card-api-context.ts");
 
 
 
@@ -40587,6 +40588,7 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 
 
+
 var Login = function Login() {
   var _useState = Object(react__WEBPACK_IMPORTED_MODULE_13__["useState"])(''),
       _useState2 = _slicedToArray(_useState, 2),
@@ -40598,12 +40600,15 @@ var Login = function Login() {
       password = _useState4[0],
       setPassword = _useState4[1];
 
+  var memoryCardApi = Object(react__WEBPACK_IMPORTED_MODULE_13__["useContext"])(_contexts_memory_card_api_context__WEBPACK_IMPORTED_MODULE_18__["MemoryCardApiContext"]);
+
   var _useSelector = Object(react_redux__WEBPACK_IMPORTED_MODULE_15__["useSelector"])(function (state) {
     return state.login;
   }),
       isLoading = _useSelector.isLoading,
-      isError = _useSelector.isError,
-      isSuccess = _useSelector.isSuccess;
+      error = _useSelector.error,
+      success = _useSelector.success,
+      token = _useSelector.token;
 
   var status = '';
 
@@ -40611,14 +40616,15 @@ var Login = function Login() {
     status = 'Loading...';
   }
 
-  if (isError) {
-    status = 'Error!';
+  if (error) {
+    status = error;
   }
 
-  if (isSuccess) {
-    status = 'Login success';
+  if (success) {
+    status = success;
   }
 
+  console.log(token);
   var dispatch = Object(react_redux__WEBPACK_IMPORTED_MODULE_15__["useDispatch"])();
 
   function handleSubmit(evt) {
@@ -40626,7 +40632,7 @@ var Login = function Login() {
     dispatch(Object(_reducers_login_reducer_actions__WEBPACK_IMPORTED_MODULE_17__["loginAttempt"])({
       email: email,
       password: password
-    }));
+    }, memoryCardApi));
   }
 
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("div", {
@@ -40977,9 +40983,8 @@ var Register = function Register() {
     return state.register;
   }),
       isLoading = _useSelector.isLoading,
-      isError = _useSelector.isError,
-      isSuccess = _useSelector.isSuccess,
-      message = _useSelector.message;
+      error = _useSelector.error,
+      success = _useSelector.success;
 
   var serverStatus = '';
 
@@ -40987,12 +40992,12 @@ var Register = function Register() {
     serverStatus = 'Loading...';
   }
 
-  if (isError) {
-    serverStatus = 'Error!';
+  if (error) {
+    serverStatus = error;
   }
 
-  if (isSuccess) {
-    serverStatus = message;
+  if (success) {
+    serverStatus = success;
   }
 
   var dispatch = Object(react_redux__WEBPACK_IMPORTED_MODULE_15__["useDispatch"])();
@@ -41171,42 +41176,37 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "loginFailure", function() { return loginFailure; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "loginSuccess", function() { return loginSuccess; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "loginAttempt", function() { return loginAttempt; });
-/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! core-js/modules/es.object.to-string */ "../node_modules/core-js/modules/es.object.to-string.js");
-/* harmony import */ var core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_object_to_string__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.promise */ "../node_modules/core-js/modules/es.promise.js");
-/* harmony import */ var core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_promise__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var _actions_constant__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./actions-constant */ "./src/reducers/login-reducer/actions-constant.ts");
-
-
+/* harmony import */ var _actions_constant__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./actions-constant */ "./src/reducers/login-reducer/actions-constant.ts");
 
 function loginRequest() {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_REQUEST"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_0__["LOGIN_REQUEST"]
   };
 }
-function loginFailure() {
+function loginFailure(message) {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_FAILURE"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_0__["LOGIN_FAILURE"],
+    payload: message
   };
 }
-function loginSuccess() {
+function loginSuccess(message, token) {
   return {
-    type: _actions_constant__WEBPACK_IMPORTED_MODULE_2__["LOGIN_SUCCESS"]
+    type: _actions_constant__WEBPACK_IMPORTED_MODULE_0__["LOGIN_SUCCESS"],
+    payload: {
+      message: message,
+      token: token
+    }
   };
 }
-function loginAttempt(data) {
-  return function (dispatch, getState) {
+function loginAttempt(data, memoryCardApi) {
+  return function (dispatch) {
     dispatch(loginRequest());
-    return fetch('/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    }).then(function (res) {
-      dispatch(loginSuccess());
+    return memoryCardApi.getLogin(data).then(function (_ref) {
+      var message = _ref.message,
+          token = _ref.token;
+      dispatch(loginSuccess(message, token));
     })["catch"](function (err) {
-      dispatch(loginFailure());
+      dispatch(loginFailure(err.message));
     });
   };
 }
@@ -41229,10 +41229,10 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var initialState = {
-  isError: false,
+  error: '',
   isLoading: false,
-  isSuccess: false,
-  message: ''
+  success: '',
+  token: ''
 };
 function loginReducer() {
   var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
@@ -41241,22 +41241,23 @@ function loginReducer() {
   switch (action.type) {
     case _actions_constant__WEBPACK_IMPORTED_MODULE_1__["LOGIN_REQUEST"]:
       return {
-        isError: false,
-        isSuccess: false,
+        error: '',
         isLoading: true,
-        message: ''
+        success: '',
+        token: ''
       };
 
     case _actions_constant__WEBPACK_IMPORTED_MODULE_1__["LOGIN_FAILURE"]:
       return Object.assign(Object.assign({}, state), {
-        isLoading: false,
-        isError: true
+        error: action.payload,
+        isLoading: false
       });
 
     case _actions_constant__WEBPACK_IMPORTED_MODULE_1__["LOGIN_SUCCESS"]:
       return Object.assign(Object.assign({}, state), {
         isLoading: false,
-        isSuccess: true
+        success: action.payload.message,
+        token: action.payload.token
       });
 
     default:
@@ -41304,9 +41305,10 @@ function registerRequest() {
     type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_REQUEST"]
   };
 }
-function registerFailure() {
+function registerFailure(message) {
   return {
-    type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_FAILURE"]
+    type: _actions_constants__WEBPACK_IMPORTED_MODULE_0__["REGISTER_FAILURE"],
+    payload: message
   };
 }
 function registerSuccess(message) {
@@ -41318,10 +41320,11 @@ function registerSuccess(message) {
 function registrationAttempt(data, memoryCardApi) {
   return function (dispatch) {
     dispatch(registerRequest());
-    return memoryCardApi.getRegistered(data).then(function (message) {
+    return memoryCardApi.getRegister(data).then(function (_ref) {
+      var message = _ref.message;
       dispatch(registerSuccess(message));
-    })["catch"](function () {
-      dispatch(registerFailure());
+    })["catch"](function (err) {
+      dispatch(registerFailure(err.message));
     });
   };
 }
@@ -41344,10 +41347,9 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var initialState = {
-  isError: false,
+  error: '',
   isLoading: false,
-  isSuccess: false,
-  message: ''
+  success: ''
 };
 function registerReducer() {
   var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
@@ -41356,23 +41358,21 @@ function registerReducer() {
   switch (action.type) {
     case _actions_constants__WEBPACK_IMPORTED_MODULE_1__["REGISTER_REQUEST"]:
       return {
-        isError: false,
-        isSuccess: false,
+        error: '',
         isLoading: true,
-        message: ''
+        success: ''
       };
 
     case _actions_constants__WEBPACK_IMPORTED_MODULE_1__["REGISTER_FAILURE"]:
       return Object.assign(Object.assign({}, state), {
         isLoading: false,
-        isError: true
+        error: action.payload
       });
 
     case _actions_constants__WEBPACK_IMPORTED_MODULE_1__["REGISTER_SUCCESS"]:
       return Object.assign(Object.assign({}, state), {
         isLoading: false,
-        isSuccess: true,
-        message: action.payload
+        success: action.payload
       });
 
     default:
@@ -41424,13 +41424,13 @@ var MemoryCardApi = /*#__PURE__*/function () {
     key: "httpRequest",
     value: function () {
       var _httpRequest = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, method, headers, data) {
-        var response;
+        var response, responseJson;
         return regeneratorRuntime.wrap(function _callee$(_context) {
           while (1) {
             switch (_context.prev = _context.next) {
               case 0:
                 _context.next = 2;
-                return fetch('/auth/register', {
+                return fetch(url, {
                   method: method,
                   headers: headers,
                   body: JSON.stringify(data)
@@ -41438,18 +41438,23 @@ var MemoryCardApi = /*#__PURE__*/function () {
 
               case 2:
                 response = _context.sent;
+                _context.next = 5;
+                return response.json();
+
+              case 5:
+                responseJson = _context.sent;
 
                 if (!response.ok) {
-                  _context.next = 5;
+                  _context.next = 8;
                   break;
                 }
 
-                return _context.abrupt("return", response.json());
+                return _context.abrupt("return", responseJson);
 
-              case 5:
-                throw new Error();
+              case 8:
+                throw new Error(responseJson.message);
 
-              case 6:
+              case 9:
               case "end":
                 return _context.stop();
             }
@@ -41464,9 +41469,9 @@ var MemoryCardApi = /*#__PURE__*/function () {
       return httpRequest;
     }()
   }, {
-    key: "getRegistered",
+    key: "getRegister",
     value: function () {
-      var _getRegistered = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(postData) {
+      var _getRegister = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(postData) {
         var headers, data;
         return regeneratorRuntime.wrap(function _callee2$(_context2) {
           while (1) {
@@ -41479,7 +41484,7 @@ var MemoryCardApi = /*#__PURE__*/function () {
 
               case 4:
                 data = _context2.sent;
-                return _context2.abrupt("return", data.message);
+                return _context2.abrupt("return", data);
 
               case 6:
               case "end":
@@ -41489,11 +41494,44 @@ var MemoryCardApi = /*#__PURE__*/function () {
         }, _callee2, this);
       }));
 
-      function getRegistered(_x5) {
-        return _getRegistered.apply(this, arguments);
+      function getRegister(_x5) {
+        return _getRegister.apply(this, arguments);
       }
 
-      return getRegistered;
+      return getRegister;
+    }()
+  }, {
+    key: "getLogin",
+    value: function () {
+      var _getLogin = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(postData) {
+        var headers, data;
+        return regeneratorRuntime.wrap(function _callee3$(_context3) {
+          while (1) {
+            switch (_context3.prev = _context3.next) {
+              case 0:
+                headers = new Headers();
+                headers.append('Content-type', 'application/json');
+                console.log(1);
+                _context3.next = 5;
+                return this.httpRequest('/auth/login', 'POST', headers, postData);
+
+              case 5:
+                data = _context3.sent;
+                return _context3.abrupt("return", data);
+
+              case 7:
+              case "end":
+                return _context3.stop();
+            }
+          }
+        }, _callee3, this);
+      }));
+
+      function getLogin(_x6) {
+        return _getLogin.apply(this, arguments);
+      }
+
+      return getLogin;
     }()
   }]);
 

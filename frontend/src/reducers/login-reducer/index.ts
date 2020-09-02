@@ -1,37 +1,38 @@
-import { AuthenticationStateType } from '../../types/state-types';
+import { LoginStateType } from '../../types/state-types';
 import {
   LOGIN_REQUEST,
   LOGIN_FAILURE,
   LOGIN_SUCCESS,
 } from './actions-constant';
 
-const initialState: AuthenticationStateType = {
-  isError: false,
+const initialState: LoginStateType = {
+  error: '',
   isLoading: false,
-  isSuccess: false,
-  message: '',
+  success: '',
+  token: '',
 };
 
-export function loginReducer(state: AuthenticationStateType = initialState, action: any) {
+export function loginReducer(state: LoginStateType = initialState, action: any) {
   switch (action.type) {
     case LOGIN_REQUEST:
       return {
-        isError: false,
-        isSuccess: false,
+        error: '',
         isLoading: true,
-        message: '',
+        success: '',
+        token: '',
       };
     case LOGIN_FAILURE:
       return {
         ...state,
+        error: action.payload,
         isLoading: false,
-        isError: true,
       };
     case LOGIN_SUCCESS:
       return {
         ...state,
         isLoading: false,
-        isSuccess: true,
+        success: action.payload.message,
+        token: action.payload.token,
       };
     default:
       return state;
