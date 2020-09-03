@@ -9,7 +9,7 @@ const initialState: LoginStateType = {
   error: '',
   isLoading: false,
   success: '',
-  token: '',
+  email: '',
 };
 
 export function loginReducer(state: LoginStateType = initialState, action: any) {
@@ -19,7 +19,7 @@ export function loginReducer(state: LoginStateType = initialState, action: any) 
         error: '',
         isLoading: true,
         success: '',
-        token: '',
+        email: '',
       };
     case LOGIN_FAILURE:
       return {
@@ -32,7 +32,7 @@ export function loginReducer(state: LoginStateType = initialState, action: any) 
         ...state,
         isLoading: false,
         success: action.payload.message,
-        token: action.payload.token,
+        email: action.payload.email,
       };
     default:
       return state;

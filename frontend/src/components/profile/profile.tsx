@@ -13,7 +13,7 @@ export const Profile = () => (
               Something
               <button className="btn btn-outline-danger">
                 X
-              </button>
+                  </button>
             </p>
           </li>
           <li className="list-group-item">
@@ -21,7 +21,7 @@ export const Profile = () => (
               Something
               <button className="btn btn-outline-danger">
                 X
-              </button>
+                  </button>
             </p>
           </li>
           <li className="list-group-item">
@@ -29,7 +29,7 @@ export const Profile = () => (
               Something
               <button className="btn btn-outline-danger">
                 X
-              </button>
+                  </button>
             </p>
           </li>
           <li className="list-group-item">
@@ -37,7 +37,7 @@ export const Profile = () => (
               Something
               <button className="btn btn-outline-danger">
                 X
-              </button>
+                  </button>
             </p>
           </li>
         </ul>

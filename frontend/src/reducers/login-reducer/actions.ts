@@ -4,7 +4,7 @@ import {
   LOGIN_SUCCESS,
 } from './actions-constant';
 import { MemoryCardApi } from '../../services/memory-card-api';
-import { PostDataType } from '../../types/request-response-types';
+import { PostDataFormType } from '../../types/request-response-types';
 
 export function loginRequest() {
   return {
@@ -19,22 +19,22 @@ export function loginFailure(message: string) {
   };
 }
 
-export function loginSuccess(message: string, token: string) {
+export function loginSuccess(message: string, email: string) {
   return {
     type: LOGIN_SUCCESS,
     payload: {
       message,
-      token,
+      email,
     },
   };
 }
 
-export function loginAttempt(data: PostDataType, memoryCardApi: MemoryCardApi) {
+export function loginAttempt(data: PostDataFormType, memoryCardApi: MemoryCardApi) {
   return (dispatch: any) => {
     dispatch(loginRequest());
     return memoryCardApi.getLogin(data)
-      .then(({ message, token }) => {
-        dispatch(loginSuccess(message, token));
+      .then(({ message, email }) => {
+        dispatch(loginSuccess(message, email));
       })
       .catch((err) => {
         dispatch(loginFailure(err.message));

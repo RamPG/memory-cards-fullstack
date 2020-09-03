@@ -9,7 +9,7 @@ import {
   RegisterRequestActionType,
   RegisterSuccessActionType,
 } from '../../types/actions-types';
-import { PostDataType } from '../../types/request-response-types';
+import { PostDataFormType } from '../../types/request-response-types';
 
 export function registerRequest(): RegisterRequestActionType {
   return {
@@ -31,7 +31,7 @@ export function registerSuccess(message: string): RegisterSuccessActionType {
   };
 }
 
-export function registrationAttempt(data: PostDataType, memoryCardApi: MemoryCardApi) {
+export function registrationAttempt(data: PostDataFormType, memoryCardApi: MemoryCardApi) {
   return (dispatch: any) => {
     dispatch(registerRequest());
     return memoryCardApi.getRegister(data)

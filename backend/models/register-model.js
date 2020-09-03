@@ -1,5 +1,5 @@
 const argon2 = require('argon2');
-const User = require('./user');
+const User = require('./user-model');
 
 module.exports = class Register {
   async registrationsUser(email, password) {

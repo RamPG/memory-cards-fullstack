@@ -2,7 +2,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const User = require('./user');
+const User = require('./user-model');
 
 module.exports = class Login {
   async loginUser(email, password) {
@@ -16,18 +16,21 @@ module.exports = class Login {
         return {
           status: 200,
           message: 'Success login',
+          email,
           token,
         };
       }
       return {
         status: 401,
         message: 'Wrong password!',
+        email: '',
         token: '',
       };
     }
     return {
       status: 404,
       message: 'User not found',
+      email: '',
       token: '',
     };
   }

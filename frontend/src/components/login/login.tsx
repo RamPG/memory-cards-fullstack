@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 
 import './login.scss';
 import { useDispatch, useSelector } from 'react-redux';
@@ -6,13 +6,15 @@ import { useField } from '../../hooks/use-field';
 import { LoginStateType, InitialStateType } from '../../types/state-types';
 import { loginAttempt } from '../../reducers/login-reducer/actions';
 import { MemoryCardApi } from '../../services/memory-card-api';
-import { MemoryCardApiContext } from '../../contexts/memory-card-api-context';
+import { useMemoryCardApi } from '../../contexts/memory-card-api-context';
 
 export const Login = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const memoryCardApi: MemoryCardApi = useContext(MemoryCardApiContext);
-  const { isLoading, error, success, token }: LoginStateType = useSelector(
+  const memoryCardApi: MemoryCardApi = useMemoryCardApi();
+  const {
+    isLoading, error, success,
+  }: LoginStateType = useSelector(
     (state: InitialStateType) => state.login,
   );
   let status = '';

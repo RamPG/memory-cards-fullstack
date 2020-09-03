@@ -8,7 +8,7 @@ export type LoginStateType = {
     error: string,
     success: string,
     isLoading: boolean,
-    token: string
+    email: string,
 }
 
 export type InitialStateType = {

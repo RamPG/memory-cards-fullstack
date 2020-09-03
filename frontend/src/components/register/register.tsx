@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useContext, useState } from 'react';
+import React, { FunctionComponent, useState } from 'react';
 
 import './register.scss';
 import { useDispatch, useSelector } from 'react-redux';
@@ -10,10 +10,10 @@ import {
   registerFormValidation,
   ValidationResultType,
 } from '../../utils/validation';
-import { MemoryCardApiContext } from '../../contexts/memory-card-api-context';
+import { useMemoryCardApi } from '../../contexts/memory-card-api-context';
 
 export const Register: FunctionComponent = () => {
-  const memoryCardApi: MemoryCardApi = useContext(MemoryCardApiContext);
+  const memoryCardApi: MemoryCardApi = useMemoryCardApi();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
