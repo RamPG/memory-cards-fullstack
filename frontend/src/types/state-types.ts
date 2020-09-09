@@ -1,17 +1,13 @@
-export type RegistrationStateType = {
-    error: string,
-    success: string,
-    isLoading: boolean,
+export type WordListType = {
+    word: string,
+    description: string,
 };
-
-export type LoginStateType = {
-    error: string,
-    success: string,
+export type AuthStateType = {
+    isSuccess: boolean,
+    isError: boolean,
     isLoading: boolean,
-    email: string,
 }
 
 export type InitialStateType = {
-    login: LoginStateType,
-    register: RegistrationStateType,
+    auth: AuthStateType,
 }

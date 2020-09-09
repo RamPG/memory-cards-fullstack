@@ -15,14 +15,16 @@ module.exports = class Login {
         const token = jwt.sign({ email }, jwtSecret);
         return {
           status: 200,
-          message: 'Success login',
           email,
+          message: '',
+          wordList: findEmail.wordList,
           token,
         };
       }
       return {
         status: 401,
         message: 'Wrong password!',
+        wordList: '',
         email: '',
         token: '',
       };
@@ -30,6 +32,7 @@ module.exports = class Login {
     return {
       status: 404,
       message: 'User not found',
+      wordList: '',
       email: '',
       token: '',
     };

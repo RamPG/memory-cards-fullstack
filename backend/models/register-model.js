@@ -3,7 +3,6 @@ const User = require('./user-model');
 
 module.exports = class Register {
   async registrationsUser(email, password) {
-    console.log(1);
     const passwordHashed = await argon2.hash(password);
     const findEmail = await User.findOne({ email });
     if (findEmail) {

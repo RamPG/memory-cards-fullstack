@@ -1,8 +1,10 @@
 import React from 'react';
+import { Redirect } from 'react-router-dom';
 
 import './profile.scss';
+import { useVerifyToken } from '../../hooks/use-verify';
 
-export const Profile = () => (
+const ProfileView = () => (
   <div className="container">
     <h1 className="text-center">Your words</h1>
     <div className="d-flex justify-content-between">
@@ -60,3 +62,13 @@ export const Profile = () => (
     </div>
   </div>
 );
+export const Profile = () => {
+  const { isSuccess, isError } = useVerifyToken();
+  if (isSuccess) {
+    return <ProfileView />;
+  }
+  if (isError) {
+    return <Redirect to="/login" />;
+  }
+  return <h1>Verifying...</h1>;
+};

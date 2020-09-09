@@ -13,6 +13,26 @@ export function emailValidation(email: string): boolean {
   return !!email.match(pattern);
 }
 
+export function loginFormValidation(
+  email: string, password: string,
+): ValidationResultType {
+  if (!emailValidation(email)) {
+    return {
+      isSuccess: false,
+      message: 'Email validation error!',
+    };
+  }
+  if (!passwordValidation(password)) {
+    return {
+      isSuccess: false,
+      message: 'Password validation error!',
+    };
+  }
+  return {
+    isSuccess: true,
+    message: '',
+  };
+}
 export function registerFormValidation(
   email: string, password: string, confirmPassword: string,
 ): ValidationResultType {
