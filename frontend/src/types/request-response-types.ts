@@ -23,3 +23,7 @@ export type VerifyTokenResponseType = {
 export type LogoutResponseType = {
     message: string,
 }
+
+export type WordListResponseType = {
+    wordList: Array<WordListType>
+}

@@ -1,7 +1,7 @@
 import {
   AUTH_FAILURE, AUTH_REQUEST,
   AUTH_SUCCESS,
-} from './actions-constants';
+} from './action-constants';
 import { MemoryCardApi } from '../../services/memory-card-api';
 
 export function authRequest() {

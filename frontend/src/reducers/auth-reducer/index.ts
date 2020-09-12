@@ -2,7 +2,7 @@ import { AuthStateType } from '../../types/state-types';
 import {
   AUTH_SUCCESS,
   AUTH_FAILURE, AUTH_REQUEST,
-} from './actions-constants';
+} from './action-constants';
 
 const initialState: AuthStateType = {
   isLoading: true,

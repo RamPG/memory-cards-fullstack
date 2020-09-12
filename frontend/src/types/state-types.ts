@@ -1,7 +1,16 @@
 export type WordListType = {
+    id: string,
     word: string,
     description: string,
 };
+
+export type ProfileStateType = {
+    isSuccess: boolean,
+    error: string,
+    isLoading: boolean,
+    wordList: Array<WordListType>,
+}
+
 export type AuthStateType = {
     isSuccess: boolean,
     isError: boolean,
@@ -10,4 +19,5 @@ export type AuthStateType = {
 
 export type InitialStateType = {
     auth: AuthStateType,
+    profile: ProfileStateType,
 }

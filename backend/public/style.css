@@ -8,17 +8,12 @@ li:active {
 
 
 
+
 .list-group {
   max-height: 300px;
   margin-bottom: 10px;
   overflow: scroll;
   -webkit-overflow-scrolling: touch; }
-
-.list {
-  width: 50%; }
-
-.form-add {
-  margin-right: 15%; }
 
 
 
