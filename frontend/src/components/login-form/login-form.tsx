@@ -1,15 +1,14 @@
 import React, { FunctionComponent, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { Redirect } from 'react-router-dom';
 
 import './login-form.scss';
 
 import { useField } from '../../hooks/use-field';
 import { MemoryCardApi } from '../../services/memory-card-api';
 import { useMemoryCardApi } from '../../contexts/memory-card-api-context';
-import { useVerifyToken } from '../../hooks/use-verify';
 import { loginFormValidation } from '../../utils/validation';
 import { authSuccess } from '../../reducers/auth-reducer/actions';
+import {DispatchType} from "../../types/action-types";
 
 type LoginProps = {
   handleSubmit: (evt: React.FormEvent<HTMLFormElement>) => void,
@@ -59,7 +58,7 @@ const LoginFormView: FunctionComponent<LoginProps> = ({
 );
 export const LoginForm = () => {
   const memoryCardApi: MemoryCardApi = useMemoryCardApi();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<DispatchType>();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [validationStatus, setValidationStatus] = useState<string>('');

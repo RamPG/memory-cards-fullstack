@@ -6,11 +6,12 @@ import './add-word-form.scss';
 import { useDispatch } from 'react-redux';
 import { useField } from '../../hooks/use-field';
 import { addWord } from '../../reducers/profile-reducer/actions';
+import { DispatchType } from '../../types/action-types';
 
 export const AddWordForm = () => {
   const [word, setWord] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<DispatchType>();
   function handleSubmit(evt: React.FormEvent<HTMLFormElement>) {
     evt.preventDefault();
     dispatch(addWord(uuidv4(), word, description));

@@ -6,6 +6,7 @@ import {
   FETCH_WORD_LIST_REQUEST,
   FETCH_WORD_LIST_SUCCESS,
 } from './action-constants';
+import { ActionType } from '../../types/action-types';
 
 const initialState: ProfileStateType = {
   isSuccess: false,
@@ -19,7 +20,7 @@ function removeItem(array: Array<WordListType>, id: string) {
   return [...array.slice(0, index), ...array.slice(index + 1)];
 }
 
-export function profileReducer(state: ProfileStateType = initialState, action: any) {
+export function profileReducer(state: ProfileStateType = initialState, action: ActionType) {
   switch (action.type) {
     case FETCH_WORD_LIST_REQUEST:
       return {

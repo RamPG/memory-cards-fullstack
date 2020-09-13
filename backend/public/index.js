@@ -42517,11 +42517,9 @@ var UpdateWordListButton = function UpdateWordListButton() {
     setStatus('Loading...');
     memoryCardApi.updateWordList({
       wordList: store.getState().profile.wordList
-    }).then(function (res) {
-      console.log(res);
+    }).then(function () {
       setStatus('Updated!');
-    })["catch"](function (err) {
-      console.log(err);
+    })["catch"](function () {
       setStatus('Error');
     });
   }
@@ -42833,7 +42831,7 @@ function authSuccess() {
   };
 }
 function authCheck(memoryCardApi) {
-  return function (dispatch, getState) {
+  return function (dispatch) {
     dispatch(authRequest());
     memoryCardApi.verifyToken().then(function () {
       dispatch(authSuccess());

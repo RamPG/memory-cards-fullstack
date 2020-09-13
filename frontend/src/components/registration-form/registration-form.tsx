@@ -1,5 +1,4 @@
 import React, { FunctionComponent, useState } from 'react';
-import { Redirect } from 'react-router-dom';
 
 import './registration-form.scss';
 
@@ -10,7 +9,6 @@ import {
   ValidationResultType,
 } from '../../utils/validation';
 import { useMemoryCardApi } from '../../contexts/memory-card-api-context';
-import { useVerifyToken } from '../../hooks/use-verify';
 
 type RegisterProps = {
   handleSubmit: (evt: React.FormEvent<HTMLFormElement>) => void,

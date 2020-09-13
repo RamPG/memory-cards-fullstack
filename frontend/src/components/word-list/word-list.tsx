@@ -6,10 +6,12 @@ import { InitialStateType } from '../../types/state-types';
 import { useMemoryCardApi } from '../../contexts/memory-card-api-context';
 import { deleteWord, fetchWordList } from '../../reducers/profile-reducer/actions';
 import { WordListElement } from '../word-list-element';
+import { MemoryCardApi } from '../../services/memory-card-api';
+import { DispatchType } from '../../types/action-types';
 
 export const WordList = () => {
-  const dispatch = useDispatch();
-  const memoryCardApi = useMemoryCardApi();
+  const dispatch = useDispatch<DispatchType>();
+  const memoryCardApi: MemoryCardApi = useMemoryCardApi();
   const { isLoading, error, wordList } = useSelector((initialState: InitialStateType) => initialState.profile);
   useEffect(() => {
     dispatch(fetchWordList(memoryCardApi));

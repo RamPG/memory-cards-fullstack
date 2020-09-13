@@ -3,6 +3,7 @@ import {
   AUTH_SUCCESS,
   AUTH_FAILURE, AUTH_REQUEST,
 } from './action-constants';
+import { ActionType } from '../../types/action-types';
 
 const initialState: AuthStateType = {
   isLoading: true,
@@ -10,7 +11,7 @@ const initialState: AuthStateType = {
   isError: false,
 };
 
-export function authReducer(state: AuthStateType = initialState, action: any) {
+export function authReducer(state: AuthStateType = initialState, action: ActionType) {
   switch (action.type) {
     case AUTH_REQUEST:
       return {
