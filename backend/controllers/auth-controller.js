@@ -1,6 +1,6 @@
 const Auth = require('../models/auth-model');
 
-const auth = new Auth()
+const auth = new Auth();
 module.exports.login = async function (request, response) {
   const {
     status, message, token, email,

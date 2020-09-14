@@ -1,7 +1,6 @@
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const fs = require('fs');
+const config = require('../config/defaultDev');
 const User = require('./user-model');
 
 module.exports = class Auth {
@@ -31,9 +30,7 @@ module.exports = class Auth {
     const user = await User.findOne({ email });
     if (user) {
       if (await argon2.verify(user.password, password)) {
-        const { jwtSecret } = JSON.parse(
-          fs.readFileSync(path.resolve(__dirname, '../config/default.json'), 'utf8'),
-        );
+        const jwtSecret = config.JWT_TOKEN;
         const token = jwt.sign({ email }, jwtSecret);
         return {
           status: 200,

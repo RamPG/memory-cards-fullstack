@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const fs = require('fs');
+const config = require('../config/defaultDev');
 
 module.exports = function (request, response, next) {
   const { token, email } = request.cookies;
@@ -9,9 +8,7 @@ module.exports = function (request, response, next) {
       message: 'Unauthorized',
     });
   } else {
-    const { jwtSecret } = JSON.parse(
-      fs.readFileSync(path.resolve(__dirname, '../config/default.json'), 'utf8'),
-    );
+    const jwtSecret = config.JWT_TOKEN;
     jwt.verify(token, jwtSecret, (err, decoded) => {
       if (err) {
         response.status(401).json({
