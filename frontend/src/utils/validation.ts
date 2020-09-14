@@ -60,7 +60,7 @@ export function registerFormValidation(
 }
 
 export function addWordFormValidation(word: string, description: string): ValidationResultType {
-  const pattern: RegExp = /^[A-Za-z0-9]+$/;
+  const pattern: RegExp = /^[A-Za-z0-9А-Яа-я\s]+$/;
   if (word.match(pattern) && description.match(pattern)) {
     return {
       isSuccess: true,

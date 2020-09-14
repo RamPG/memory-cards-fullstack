@@ -2,26 +2,12 @@ import React from 'react';
 import { Redirect } from 'react-router-dom';
 
 import { useVerifyToken } from '../../hooks/use-verify';
+import { Cards } from '../cards';
 
-const CardsView = () => (
-  <div>
-    <div className="d-flex">
-      <button type="button" className="btn btn-outline-primary">{'<'}</button>
-      <p>
-        Something
-      </p>
-      <button type="button" className="btn btn-outline-primary">{'>'}</button>
-    </div>
-    <div>
-      <button type="button" className="btn btn-outline-success">Yes</button>
-      <button type="button" className="btn btn-outline-danger">No</button>
-    </div>
-  </div>
-);
 export const CardsPage = () => {
   const { isSuccess, isError } = useVerifyToken();
   if (isSuccess) {
-    return <CardsView />;
+    return <Cards />;
   }
   if (isError) {
     return <Redirect to="/login" />;
