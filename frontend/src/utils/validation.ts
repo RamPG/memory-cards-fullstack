@@ -2,7 +2,6 @@ export type ValidationResultType = {
   isSuccess: boolean,
   message: string,
 };
-
 export function passwordValidation(password: string): boolean {
   const pattern: RegExp = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$/;
   return !!password.match(pattern);
@@ -57,5 +56,19 @@ export function registerFormValidation(
   return {
     isSuccess: false,
     message: 'Passwords don\'t match',
+  };
+}
+
+export function addWordFormValidation(word: string, description: string): ValidationResultType {
+  const pattern: RegExp = /^[A-Za-z0-9]+$/;
+  if (word.match(pattern) && description.match(pattern)) {
+    return {
+      isSuccess: true,
+      message: 'Added',
+    };
+  }
+  return {
+    isSuccess: false,
+    message: 'Validation error',
   };
 }

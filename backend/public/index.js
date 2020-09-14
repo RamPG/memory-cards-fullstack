@@ -41351,12 +41351,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var core_js_modules_web_dom_collections_iterator__WEBPACK_IMPORTED_MODULE_12___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_web_dom_collections_iterator__WEBPACK_IMPORTED_MODULE_12__);
 /* harmony import */ var react__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! react */ "../node_modules/react/index.js");
 /* harmony import */ var react__WEBPACK_IMPORTED_MODULE_13___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_13__);
-/* harmony import */ var uuid__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! uuid */ "../node_modules/uuid/dist/esm-browser/index.js");
-/* harmony import */ var _add_word_form_scss__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! ./add-word-form.scss */ "./src/components/add-word-form/add-word-form.scss");
-/* harmony import */ var _add_word_form_scss__WEBPACK_IMPORTED_MODULE_15___default = /*#__PURE__*/__webpack_require__.n(_add_word_form_scss__WEBPACK_IMPORTED_MODULE_15__);
-/* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! react-redux */ "../node_modules/react-redux/es/index.js");
+/* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! react-redux */ "../node_modules/react-redux/es/index.js");
+/* harmony import */ var uuid__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! uuid */ "../node_modules/uuid/dist/esm-browser/index.js");
+/* harmony import */ var _add_word_form_scss__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! ./add-word-form.scss */ "./src/components/add-word-form/add-word-form.scss");
+/* harmony import */ var _add_word_form_scss__WEBPACK_IMPORTED_MODULE_16___default = /*#__PURE__*/__webpack_require__.n(_add_word_form_scss__WEBPACK_IMPORTED_MODULE_16__);
 /* harmony import */ var _hooks_use_field__WEBPACK_IMPORTED_MODULE_17__ = __webpack_require__(/*! ../../hooks/use-field */ "./src/hooks/use-field.ts");
 /* harmony import */ var _reducers_profile_reducer_actions__WEBPACK_IMPORTED_MODULE_18__ = __webpack_require__(/*! ../../reducers/profile-reducer/actions */ "./src/reducers/profile-reducer/actions.ts");
+/* harmony import */ var _utils_validation__WEBPACK_IMPORTED_MODULE_19__ = __webpack_require__(/*! ../../utils/validation */ "./src/utils/validation.ts");
 
 
 
@@ -41389,7 +41390,10 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 
 
+
 var AddWordForm = function AddWordForm() {
+  var store = Object(react_redux__WEBPACK_IMPORTED_MODULE_14__["useStore"])();
+
   var _useState = Object(react__WEBPACK_IMPORTED_MODULE_13__["useState"])(''),
       _useState2 = _slicedToArray(_useState, 2),
       word = _useState2[0],
@@ -41400,13 +41404,33 @@ var AddWordForm = function AddWordForm() {
       description = _useState4[0],
       setDescription = _useState4[1];
 
-  var dispatch = Object(react_redux__WEBPACK_IMPORTED_MODULE_16__["useDispatch"])();
+  var _useState5 = Object(react__WEBPACK_IMPORTED_MODULE_13__["useState"])(''),
+      _useState6 = _slicedToArray(_useState5, 2),
+      status = _useState6[0],
+      setStatus = _useState6[1];
+
+  var dispatch = Object(react_redux__WEBPACK_IMPORTED_MODULE_14__["useDispatch"])();
 
   function handleSubmit(evt) {
     evt.preventDefault();
-    dispatch(Object(_reducers_profile_reducer_actions__WEBPACK_IMPORTED_MODULE_18__["addWord"])(Object(uuid__WEBPACK_IMPORTED_MODULE_14__["v4"])(), word, description));
-    setWord('');
-    setDescription('');
+    var wordList = store.getState().profile.wordList;
+
+    if (wordList.length < 100) {
+      var _addWordFormValidatio = Object(_utils_validation__WEBPACK_IMPORTED_MODULE_19__["addWordFormValidation"])(word, description),
+          message = _addWordFormValidatio.message,
+          isSuccess = _addWordFormValidatio.isSuccess;
+
+      if (isSuccess) {
+        dispatch(Object(_reducers_profile_reducer_actions__WEBPACK_IMPORTED_MODULE_18__["addWord"])(Object(uuid__WEBPACK_IMPORTED_MODULE_15__["v4"])(), word, description));
+        setWord('');
+        setDescription('');
+        setStatus(message);
+      } else {
+        setStatus(message);
+      }
+    } else {
+      setStatus('Max limit exceeded!');
+    }
   }
 
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("div", {
@@ -41416,6 +41440,8 @@ var AddWordForm = function AddWordForm() {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("h1", null, "Add word"), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("div", {
     className: "form-group"
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("input", {
+    minLength: 1,
+    maxLength: 16,
     type: "text",
     placeholder: "Word",
     value: word,
@@ -41424,8 +41450,9 @@ var AddWordForm = function AddWordForm() {
     }
   })), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("div", {
     className: "form-group"
-  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("input", {
-    type: "text",
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("textarea", {
+    minLength: 1,
+    maxLength: 512,
     placeholder: "Description",
     value: description,
     onChange: function onChange(evt) {
@@ -41434,7 +41461,7 @@ var AddWordForm = function AddWordForm() {
   })), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("button", {
     type: "submit",
     className: "btn btn-primary"
-  }, "Add")));
+  }, "Add"), status));
 };
 
 /***/ }),
@@ -42514,14 +42541,20 @@ var UpdateWordListButton = function UpdateWordListButton() {
 
   function onUpdateWordList(evt) {
     evt.preventDefault();
-    setStatus('Loading...');
-    memoryCardApi.updateWordList({
-      wordList: store.getState().profile.wordList
-    }).then(function () {
-      setStatus('Updated!');
-    })["catch"](function () {
-      setStatus('Error');
-    });
+    var wordList = store.getState().profile.wordList;
+
+    if (wordList.length < 100) {
+      setStatus('Loading...');
+      memoryCardApi.updateWordList({
+        wordList: store.getState().profile.wordList
+      }).then(function () {
+        setStatus('Updated!');
+      })["catch"](function () {
+        setStatus('Error');
+      });
+    } else {
+      setStatus('Max limit exceeded!');
+    }
   }
 
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement(react__WEBPACK_IMPORTED_MODULE_13___default.a.Fragment, null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_13___default.a.createElement("button", {
@@ -42665,7 +42698,7 @@ var WordList = function WordList() {
     return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("h1", null, "Error...");
   }
 
-  return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("ul", {
+  return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("div", null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("h1", null, "".concat(wordList.length, "/100")), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("ul", {
     className: "list-group"
   }, wordList.map(function (element) {
     return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1___default.a.createElement("li", {
@@ -42677,7 +42710,7 @@ var WordList = function WordList() {
         return dispatch(Object(_reducers_profile_reducer_actions__WEBPACK_IMPORTED_MODULE_5__["deleteWord"])(element.id));
       }
     }));
-  }));
+  })));
 };
 
 /***/ }),
@@ -43454,7 +43487,7 @@ var store = Object(redux__WEBPACK_IMPORTED_MODULE_0__["createStore"])(_reducers_
 /*!*********************************!*\
   !*** ./src/utils/validation.ts ***!
   \*********************************/
-/*! exports provided: passwordValidation, emailValidation, loginFormValidation, registerFormValidation */
+/*! exports provided: passwordValidation, emailValidation, loginFormValidation, registerFormValidation, addWordFormValidation */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -43463,6 +43496,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "emailValidation", function() { return emailValidation; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "loginFormValidation", function() { return loginFormValidation; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registerFormValidation", function() { return registerFormValidation; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "addWordFormValidation", function() { return addWordFormValidation; });
 /* harmony import */ var core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! core-js/modules/es.regexp.exec */ "../node_modules/core-js/modules/es.regexp.exec.js");
 /* harmony import */ var core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(core_js_modules_es_regexp_exec__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var core_js_modules_es_string_match__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! core-js/modules/es.string.match */ "../node_modules/core-js/modules/es.string.match.js");
@@ -43522,6 +43556,21 @@ function registerFormValidation(email, password, confirmPassword) {
   return {
     isSuccess: false,
     message: 'Passwords don\'t match'
+  };
+}
+function addWordFormValidation(word, description) {
+  var pattern = /^[A-Za-z0-9]+$/;
+
+  if (word.match(pattern) && description.match(pattern)) {
+    return {
+      isSuccess: true,
+      message: 'Added'
+    };
+  }
+
+  return {
+    isSuccess: false,
+    message: 'Validation error'
   };
 }
 

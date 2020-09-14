@@ -23,14 +23,17 @@ export const WordList = () => {
     return <h1>Error...</h1>;
   }
   return (
-    <ul className="list-group">
-      {
-          wordList.map((element) => (
-            <li key={element.id} className="list-group-item">
-              <WordListElement word={element.word} onDelete={() => dispatch(deleteWord(element.id))} />
-            </li>
-          ))
-        }
-    </ul>
+    <div>
+      <h1>{`${wordList.length}/100`}</h1>
+      <ul className="list-group">
+        {
+            wordList.map((element) => (
+              <li key={element.id} className="list-group-item">
+                <WordListElement word={element.word} onDelete={() => dispatch(deleteWord(element.id))} />
+              </li>
+            ))
+          }
+      </ul>
+    </div>
   );
 };
